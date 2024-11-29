@@ -2,9 +2,9 @@ package ginplugin
 
 import (
 	"context"
+	"github.com/chenparty/gog/zlog"
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
-	"gog/zlog"
 )
 
 func GinRequestIDForTrace() gin.HandlerFunc {

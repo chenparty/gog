@@ -2,9 +2,9 @@ package ginplugin
 
 import (
 	"bytes"
+	"github.com/chenparty/gog/zlog"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
-	"gog/zlog"
 	"time"
 )
 

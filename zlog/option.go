@@ -2,8 +2,8 @@ package zlog
 
 import (
 	"context"
+	"github.com/chenparty/gog/zlog/zwriter"
 	"github.com/nats-io/nats.go"
-	"gog/zlog/zwriter"
 	"io"
 	"os"
 )

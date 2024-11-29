@@ -3,14 +3,14 @@ package gormplugin
 import (
 	"context"
 	"errors"
-	"gog/zlog"
+	"github.com/chenparty/gog/zlog"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/utils"
 	"time"
 )
 
 // New initialize logger
-func New(config Config) logger.Interface {
+func NewLogger(config Config) logger.Interface {
 	return &zlogGormLogger{
 		Config: config,
 	}
