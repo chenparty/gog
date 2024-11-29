@@ -1,4 +1,4 @@
-module gog
+module github.com/chenparty/gog
 
 go 1.23
 
