@@ -4,6 +4,7 @@ import (
 	"github.com/rs/zerolog"
 	"io"
 	"os"
+	"runtime"
 	"sync/atomic"
 	"time"
 )
@@ -60,17 +61,27 @@ func newZerolog(writer io.Writer, level string) zerolog.Logger {
 }
 
 func Debug() *zerolog.Event {
-	return instance().l.Debug()
+	return instance().l.Debug().Str("meth", getFunName(1))
 }
 
 func Info() *zerolog.Event {
-	return instance().l.Info()
+	return instance().l.Info().Str("meth", getFunName(1))
 }
 
 func Warn() *zerolog.Event {
-	return instance().l.Warn()
+	return instance().l.Warn().Str("meth", getFunName(1))
 }
 
 func Error() *zerolog.Event {
-	return instance().l.Error()
+	return instance().l.Error().Str("meth", getFunName(1))
+}
+
+// 获取第几层函数的名称
+// 0-当前层 packageName.getFunName
+// 1-上一层 packageName.Info
+// 2-再上一层
+// 3-再再上一层
+func getFunName(l int) string {
+	pc, _, _, _ := runtime.Caller(l)
+	return runtime.FuncForPC(pc).Name()
 }
