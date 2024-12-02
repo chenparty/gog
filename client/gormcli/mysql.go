@@ -88,6 +88,13 @@ func WithSlowThreshold(slowThreshold time.Duration) Option {
 }
 
 // DB 获取数据库连接
-func DB(context context.Context) *gorm.DB {
-	return db.WithContext(context)
+func DB(ctx context.Context) *gorm.DB {
+	return db.WithContext(ctx)
+}
+
+type TransactionFunc func(tx *gorm.DB) error
+
+// StartTransaction 开启事务
+func StartTransaction(ctx context.Context, trans TransactionFunc) error {
+	return db.WithContext(ctx).Transaction(trans)
 }
