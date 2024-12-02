@@ -11,6 +11,7 @@ type NATSWriterOption struct {
 	Subject    string
 }
 
+// NewNATSWriter 创建一个NATS写入器
 func (o NATSWriterOption) NewNATSWriter() *NATSWriter {
 	if o.Connection == nil {
 		panic("missing NATS connection")

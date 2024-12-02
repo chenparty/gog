@@ -11,6 +11,7 @@ type FileWriterOption struct {
 	Compress bool
 }
 
+// NewFileWriter 创建一个文件日志写入器
 func (o FileWriterOption) NewFileWriter() *lumberjack.Logger {
 	if o.FileName == "" {
 		o.FileName = "log/app.log"

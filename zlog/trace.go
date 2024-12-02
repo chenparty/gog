@@ -2,7 +2,7 @@ package zlog
 
 import (
 	"context"
-	"github.com/google/uuid"
+	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog"
 )
 
@@ -18,11 +18,17 @@ func (h *TraceHook) Run(e *zerolog.Event, _ zerolog.Level, _ string) {
 	e.Str("trace_id", traceID)
 }
 
+// ContextWithValue 将 trace_id 添加到上下文
 func ContextWithValue(ctx context.Context, traceID string) context.Context {
 	return context.WithValue(ctx, ctxTraceIDKey, traceID)
 }
 
+// NewTraceContext 创建一个新的带有 trace_id 的上下文
 func NewTraceContext(ctx context.Context) context.Context {
-	traceID := uuid.New().String()
-	return ContextWithValue(ctx, traceID)
+	return ContextWithValue(ctx, NewTraceID())
+}
+
+// NewTraceID 生成一个新的 trace_id
+func NewTraceID() string {
+	return ulid.Make().String()
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// GinLogger 日志
 func GinLogger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		//先打印请求头信息

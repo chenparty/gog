@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// New initialize logger
+// NewLogger 为zlog初始化一个gormLogger
 func NewLogger(config Config) logger.Interface {
 	return &zlogGormLogger{
 		Config: config,
