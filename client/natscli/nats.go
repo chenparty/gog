@@ -25,6 +25,7 @@ type Options struct {
 
 type Option func(*Options)
 
+// Connect NATS连接
 func Connect(clientName string, servers []string, options ...Option) {
 	opts := Options{
 		reconnectWait: time.Second * 30,
@@ -79,9 +80,32 @@ func Connect(clientName string, servers []string, options ...Option) {
 	zlog.Info().Str("servers", serversStr).Msg("Jetstream Context创建成功")
 }
 
+// NewZlogLoggerWithNATS 使用NATS作为日志输出
 func NewZlogLoggerWithNATS(level string, subj string) {
 	if nc == nil {
 		panic("NATS还未创建连接")
 	}
 	zlog.NewLogLogger("NATS", level, zlog.NATSAttr(nc, subj))
+}
+
+// WithUserAndPass 用户名密码认证
+func WithUserAndPass(username, password string) Option {
+	return func(opts *Options) {
+		opts.Username = username
+		opts.Password = password
+	}
+}
+
+// WithNKey NKey认证
+func WithNKey(seedFile string) Option {
+	return func(options *Options) {
+		options.NKeySeedFile = seedFile
+	}
+}
+
+// WithToken TOKEN认证
+func WithToken(token string) Option {
+	return func(options *Options) {
+		options.Token = token
+	}
 }

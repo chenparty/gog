@@ -28,6 +28,7 @@ func (o Options) newWriter() io.Writer {
 	}
 }
 
+// FileAttr 使用文件输出日志的配置
 func FileAttr(name string, maxSize int, maxAge int, compress bool) Option {
 	return func(o *Options) {
 		o.FileWriterOption = zwriter.FileWriterOption{
@@ -39,6 +40,7 @@ func FileAttr(name string, maxSize int, maxAge int, compress bool) Option {
 	}
 }
 
+// NATSAttr 使用NATS输出日志的配置
 func NATSAttr(conn *nats.Conn, subject string) Option {
 	return func(o *Options) {
 		o.NATSWriterOption = zwriter.NATSWriterOption{
