@@ -18,6 +18,12 @@ func (h *TraceHook) Run(e *zerolog.Event, _ zerolog.Level, _ string) {
 	e.Str("trace_id", traceID)
 }
 
+// TraceIDFromContext 从上下文中获取 trace_id
+func TraceIDFromContext(ctx context.Context) string {
+	traceID, _ := ctx.Value(ctxTraceIDKey).(string)
+	return traceID
+}
+
 // ContextWithValue 将 trace_id 添加到上下文
 func ContextWithValue(ctx context.Context, traceID string) context.Context {
 	return context.WithValue(ctx, ctxTraceIDKey, traceID)
