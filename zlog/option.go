@@ -1,7 +1,6 @@
 package zlog
 
 import (
-	"context"
 	"github.com/chenparty/gog/zlog/zwriter"
 	"github.com/nats-io/nats.go"
 	"io"
@@ -14,8 +13,6 @@ type Options struct {
 
 	FileWriterOption zwriter.FileWriterOption
 	NATSWriterOption zwriter.NATSWriterOption
-
-	TraceHookDecFunc func(ctx context.Context) string
 }
 
 type Option func(*Options)

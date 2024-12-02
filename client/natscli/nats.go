@@ -78,3 +78,10 @@ func Connect(clientName string, servers []string, options ...Option) {
 	}
 	zlog.Info().Str("servers", serversStr).Msg("Jetstream Context创建成功")
 }
+
+func NewZlogLoggerWithNATS(level string, subj string) {
+	if nc == nil {
+		panic("NATS还未创建连接")
+	}
+	zlog.NewLogLogger("NATS", level, zlog.NATSAttr(nc, subj))
+}
