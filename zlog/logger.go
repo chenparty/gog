@@ -57,23 +57,23 @@ func newZerolog(writer io.Writer, level string) zerolog.Logger {
 	zerolog.TimeFieldFormat = time.DateTime
 	return zerolog.New(writer).Level(le).
 		With().Timestamp().Caller().Str("hostname", hostname).
-		Logger().Hook()
+		Logger().Hook(&TraceHook{})
 }
 
 func Debug() *zerolog.Event {
-	return instance().l.Debug().Str("meth", getFunName(1))
+	return instance().l.Debug().Str("meth", getFunName(2))
 }
 
 func Info() *zerolog.Event {
-	return instance().l.Info().Str("meth", getFunName(1))
+	return instance().l.Info().Str("meth", getFunName(2))
 }
 
 func Warn() *zerolog.Event {
-	return instance().l.Warn().Str("meth", getFunName(1))
+	return instance().l.Warn().Str("meth", getFunName(2))
 }
 
 func Error() *zerolog.Event {
-	return instance().l.Error().Str("meth", getFunName(1))
+	return instance().l.Error().Str("meth", getFunName(2))
 }
 
 // 获取第几层函数的名称
