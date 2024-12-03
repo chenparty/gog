@@ -7,6 +7,7 @@ import (
 )
 
 var subscribes = map[string]MQTT.MessageHandler{}
+var subTopicQos = map[string]byte{}
 var mqttClient MQTT.Client
 
 type Options struct {
@@ -36,7 +37,8 @@ func Connect(addr string, options ...Option) {
 		zlog.Info().Str("addr", addr).Msg("MQTT连接成功")
 		// 连接后自动订阅Topic
 		for key, sub := range subscribes {
-			client.Subscribe(key, 0, sub)
+			qos, _ := subTopicQos[key]
+			client.Subscribe(key, qos, sub)
 		}
 	}
 	clientOptions.OnConnectionLost = func(client MQTT.Client, e error) {
@@ -45,6 +47,7 @@ func Connect(addr string, options ...Option) {
 	mqttClient = MQTT.NewClient(clientOptions)
 	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
 		zlog.Error().Str("addr", addr).Err(token.Error()).Msg("MQTT连接失败")
+		panic(token.Error())
 	}
 }
 
@@ -73,10 +76,11 @@ func WithUserAndPass(username, pwd string) Option {
 }
 
 // Subscribe 订阅主题
-func Subscribe(topic string, callback MQTT.MessageHandler) {
+func Subscribe(topic string, qos byte, callback MQTT.MessageHandler) {
 	subscribes[topic] = callback
+	subTopicQos[topic] = qos
 	if mqttClient.IsConnected() {
-		if token := mqttClient.Subscribe(topic, 0, callback); token.Wait() && token.Error() != nil {
+		if token := mqttClient.Subscribe(topic, qos, callback); token.Wait() && token.Error() != nil {
 			zlog.Error().Str("topic", topic).Err(token.Error()).Msg("MQTT订阅失败")
 		}
 	}
