@@ -1,4 +1,4 @@
-package gormcli
+package mysqlcli
 
 import (
 	"context"
