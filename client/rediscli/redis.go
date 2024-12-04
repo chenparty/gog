@@ -35,16 +35,10 @@ func Connect(addr string, options ...Option) {
 	zlog.Info().Str("addr", addr).Msg("redis连接成功")
 }
 
-// WithUsername 设置用户名
-func WithUsername(user string) Option {
+// WithUserAndPass 设置用户名和密码
+func WithUserAndPass(user, pwd string) Option {
 	return func(options *Options) {
 		options.Username = user
-	}
-}
-
-// WithPassword 设置密码
-func WithPassword(pwd string) Option {
-	return func(options *Options) {
 		options.Password = pwd
 	}
 }
