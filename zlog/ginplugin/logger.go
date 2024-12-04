@@ -50,6 +50,8 @@ func GinLogger() gin.HandlerFunc {
 			requestBody, ok := val.([]byte)
 			if ok {
 				event = event.RawJSON("request_body", requestBody)
+			} else {
+				event = event.Any("request_body", val)
 			}
 		}
 		// 获取响应的字节内容
@@ -85,6 +87,6 @@ func getRequestBody(c *gin.Context) (any, bool) {
 	return c.Get(RequestBodyKey)
 }
 
-func SetRequestBody(c *gin.Context, body []byte) {
+func LogRequestBody(c *gin.Context, body any) {
 	c.Set(RequestBodyKey, body)
 }
