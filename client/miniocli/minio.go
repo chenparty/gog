@@ -1,4 +1,4 @@
-package minio_go
+package miniocli
 
 import (
 	"context"

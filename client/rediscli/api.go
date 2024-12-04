@@ -1,4 +1,4 @@
-package redis_go
+package rediscli
 
 import (
 	"context"
