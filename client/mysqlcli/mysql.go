@@ -2,6 +2,7 @@ package mysqlcli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/chenparty/gog/zlog"
 	"github.com/chenparty/gog/zlog/gormplugin"
@@ -97,4 +98,9 @@ type TransactionFunc func(tx *gorm.DB) error
 // StartTransaction 开启事务
 func StartTransaction(ctx context.Context, trans TransactionFunc) error {
 	return db.WithContext(ctx).Transaction(trans)
+}
+
+// IsRecordNotFoundErr 判断是否记录不存在错误
+func IsRecordNotFoundErr(err error) bool {
+	return errors.Is(err, gorm.ErrRecordNotFound)
 }
