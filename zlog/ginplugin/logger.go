@@ -18,13 +18,12 @@ func GinLogger() gin.HandlerFunc {
 			path = path + "?" + raw
 		}
 		start := time.Now()
-		zlog.Info().Ctx(c).
+		zlog.Info().Ctx(c.Request.Context()).
 			Str("method", c.Request.Method).
 			Str("path", path).
 			Str("client_ip", c.ClientIP()).
 			Str("user_agent", c.Request.UserAgent()).
-			Str("request_time", start.Format(time.DateTime)).
-			Msg("Request header")
+			Msg("GinRequest")
 
 		// 创建自定义的 ResponseWriter
 		customWriter := &CustomResponseWriter{
@@ -49,20 +48,22 @@ func GinLogger() gin.HandlerFunc {
 		if isExist {
 			requestBody, ok := val.([]byte)
 			if ok {
-				event = event.RawJSON("request_body", requestBody)
+				event = event.RawJSON("body", requestBody)
 			} else {
-				event = event.Any("request_body", val)
+				event = event.Any("body", val)
 			}
 		}
 		// 获取响应的字节内容
-		responseBody := customWriter.body
-		event.RawJSON("response_body", responseBody.Bytes())
+		if c.Writer.Size() > 0 {
+			responseBody := customWriter.body
+			event.RawJSON("body", responseBody.Bytes())
+		}
 		// 打印
-		event.Ctx(c).
+		event.Ctx(c.Request.Context()).
 			Int("status", c.Writer.Status()).
 			Dur("duration", duration).
-			Int("response_body_size", c.Writer.Size()).
-			Msg("Request body+response")
+			Int("body_size", c.Writer.Size()).
+			Msg("GinResponse")
 	}
 }
 

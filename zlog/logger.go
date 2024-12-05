@@ -61,19 +61,19 @@ func newZerolog(writer io.Writer, level string) zerolog.Logger {
 }
 
 func Debug() *zerolog.Event {
-	return instance().l.Debug().Str("meth", getFunName(2))
+	return instance().l.Debug().Str("method", getFunName(2))
 }
 
 func Info() *zerolog.Event {
-	return instance().l.Info().Str("meth", getFunName(2))
+	return instance().l.Info().Str("method", getFunName(2))
 }
 
 func Warn() *zerolog.Event {
-	return instance().l.Warn().Str("meth", getFunName(2))
+	return instance().l.Warn().Str("method", getFunName(2))
 }
 
 func Error() *zerolog.Event {
-	return instance().l.Error().Str("meth", getFunName(2))
+	return instance().l.Error().Str("method", getFunName(2))
 }
 
 // 获取第几层函数的名称
