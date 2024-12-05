@@ -60,6 +60,7 @@ func GinLogger() gin.HandlerFunc {
 		}
 		// 打印
 		event.Ctx(c.Request.Context()).
+			Str("path", path).
 			Int("status", c.Writer.Status()).
 			Dur("duration", duration).
 			Int("body_size", c.Writer.Size()).
