@@ -53,8 +53,8 @@ func GinLogger() gin.HandlerFunc {
 				event = event.Any("body", val)
 			}
 		}
-		// 获取响应的字节内容
-		if c.Writer.Size() > 0 {
+		// 获取响应的字节内容,太大的也不打印
+		if c.Writer.Size() > 0 && c.Writer.Size() < 2000 {
 			responseBody := customWriter.body
 			event.RawJSON("body", responseBody.Bytes())
 		}
