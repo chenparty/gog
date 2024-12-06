@@ -64,7 +64,7 @@ func GinLogger() gin.HandlerFunc {
 			Int("status", c.Writer.Status()).
 			Dur("duration", duration).
 			Int("body_size", c.Writer.Size()).
-			Msg("GinResponse")
+			Msg("GinRequest")
 	}
 }
 

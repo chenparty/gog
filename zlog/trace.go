@@ -18,28 +18,26 @@ func (h *TraceHook) Run(e *zerolog.Event, _ zerolog.Level, _ string) {
 	e.Str("trace_id", traceID)
 }
 
-// TraceIDFromContext 从上下文中获取 trace_id
-func TraceIDFromContext(ctx context.Context) string {
-	traceID, _ := ctx.Value(ctxTraceIDKey).(string)
-	return traceID
+// NewTraceID 生成一个新的 trace_id
+func NewTraceID() string {
+	return ulid.Make().String()
 }
 
-// ContextWithValue 基于父context，创建一个带 trace_id 的上下文
+// ContextWithValue 基于父context，创建一个带 trace_id 的上下文，受父context生命周期影响，非必要不使用
 func ContextWithValue(ctx context.Context, traceID string) context.Context {
 	return context.WithValue(ctx, ctxTraceIDKey, traceID)
 }
 
-// NewTraceContext 创建一个新的背景context，自动生成新的trace_id
-func NewTraceContext() context.Context {
-	return NewBgContext(NewTraceID())
+// NewTraceContext 创建一个新的trace context
+func NewTraceContext(ctx context.Context) context.Context {
+	if traceID, ok := ctx.Value(ctxTraceIDKey).(string); ok {
+		return ContextWithValue(context.Background(), traceID)
+	}
+	return ContextWithValue(context.Background(), NewTraceID())
 }
 
-// NewBgContext 创建一个新的背景context，使用已有的trace_id
-func NewBgContext(traceID string) context.Context {
-	return ContextWithValue(context.Background(), traceID)
-}
-
-// NewTraceID 生成一个新的 trace_id
-func NewTraceID() string {
-	return ulid.Make().String()
+// TraceIDFromContext 从上下文中获取 trace_id
+func TraceIDFromContext(ctx context.Context) string {
+	traceID, _ := ctx.Value(ctxTraceIDKey).(string)
+	return traceID
 }
