@@ -24,14 +24,19 @@ func TraceIDFromContext(ctx context.Context) string {
 	return traceID
 }
 
-// ContextWithValue 将 trace_id 添加到上下文
+// ContextWithValue 基于父context，创建一个带 trace_id 的上下文
 func ContextWithValue(ctx context.Context, traceID string) context.Context {
 	return context.WithValue(ctx, ctxTraceIDKey, traceID)
 }
 
-// NewTraceContext 创建一个新的带有 trace_id 的上下文
-func NewTraceContext(ctx context.Context) context.Context {
-	return ContextWithValue(ctx, NewTraceID())
+// NewTraceContext 创建一个新的背景context，自动生成新的trace_id
+func NewTraceContext() context.Context {
+	return NewBgContext(NewTraceID())
+}
+
+// NewBgContext 创建一个新的背景context，使用已有的trace_id
+func NewBgContext(traceID string) context.Context {
+	return ContextWithValue(context.Background(), traceID)
 }
 
 // NewTraceID 生成一个新的 trace_id

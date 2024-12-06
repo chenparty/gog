@@ -48,15 +48,15 @@ func GinLogger() gin.HandlerFunc {
 		if isExist {
 			requestBody, ok := val.([]byte)
 			if ok {
-				event = event.RawJSON("body", requestBody)
+				event = event.RawJSON("req_body", requestBody)
 			} else {
-				event = event.Any("body", val)
+				event = event.Any("req_body", val)
 			}
 		}
 		// 获取响应的字节内容,太大的也不打印
 		if c.Writer.Size() > 0 && c.Writer.Size() < 2000 {
 			responseBody := customWriter.body
-			event.RawJSON("body", responseBody.Bytes())
+			event.RawJSON("resp_body", responseBody.Bytes())
 		}
 		// 打印
 		event.Ctx(c.Request.Context()).
