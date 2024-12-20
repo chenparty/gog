@@ -8,23 +8,33 @@ import (
 	"time"
 )
 
-func Pub(ctx context.Context, subj string, data []byte) {
-	err := nc.Publish(subj, data)
+func Pub(ctx context.Context, subj string, data []byte) (err error) {
+	err = nc.Publish(subj, data)
 	if err != nil {
 		zlog.Error().Ctx(ctx).Err(err).Str("subj", subj).Msg("nc.Publish")
 	}
+	return
 }
 
-func PubGo(ctx context.Context, subj string, data any) {
+func PubGo(ctx context.Context, subj string, data any) (err error) {
 	bs, err := json.Marshal(data)
 	if err != nil {
 		zlog.Error().Ctx(ctx).Err(err).Str("subj", subj).Msg("json.Marshal")
 		return
 	}
-	Pub(ctx, subj, bs)
+	return Pub(ctx, subj, bs)
 }
+
 func Request(subj string, data []byte, timeout time.Duration) (*nats.Msg, error) {
 	return nc.Request(subj, data, timeout)
+}
+
+func RequestGo(subj string, data any, timeout time.Duration) (*nats.Msg, error) {
+	bs, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	return nc.Request(subj, bs, timeout)
 }
 
 func Sub(subj string, handler nats.MsgHandler) (err error) {

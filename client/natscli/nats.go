@@ -21,6 +21,9 @@ type Options struct {
 	NKeySeedFile string
 	// 认证配置-TOKEN方式
 	Token string
+
+	//启用JetStream
+	EnableJetStream bool
 }
 
 type Option func(*Options)
@@ -72,12 +75,14 @@ func Connect(clientName string, servers []string, options ...Option) {
 	}
 	zlog.Info().Str("servers", serversStr).Msg("nats连接成功")
 	// Stream配置
-	err = newJetStreamContext()
-	if err != nil {
-		zlog.Error().Err(err).Msg("createJetStreamContext")
-		panic(err)
+	if opts.EnableJetStream {
+		err = newJetStreamContext()
+		if err != nil {
+			zlog.Error().Err(err).Msg("createJetStreamContext")
+			panic(err)
+		}
+		zlog.Info().Str("servers", serversStr).Msg("JetStream Context创建成功")
 	}
-	zlog.Info().Str("servers", serversStr).Msg("Jetstream Context创建成功")
 }
 
 // NewZlogLoggerWithNATS 使用NATS作为日志输出
@@ -107,5 +112,12 @@ func WithNKey(seedFile string) Option {
 func WithToken(token string) Option {
 	return func(options *Options) {
 		options.Token = token
+	}
+}
+
+// WithJetStream 是否启用JetStream
+func WithJetStream(enable bool) Option {
+	return func(options *Options) {
+		options.EnableJetStream = enable
 	}
 }
