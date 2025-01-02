@@ -6,13 +6,16 @@ require (
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/gin-contrib/requestid v1.0.3
 	github.com/gin-gonic/gin v1.10.0
+	github.com/go-resty/resty/v2 v2.16.2
 	github.com/minio/minio-go/v7 v7.0.81
 	github.com/nats-io/nats.go v1.37.0
 	github.com/oklog/ulid/v2 v2.1.0
+	github.com/pelletier/go-toml/v2 v2.2.3
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/rs/zerolog v1.33.0
 	go.etcd.io/etcd/client/v3 v3.5.17
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
+	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/gorm v1.25.12
 )
@@ -52,7 +55,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/nats-io/nkeys v0.4.7 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
-	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
@@ -72,5 +74,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230822172742-b8732ec3820d // indirect
 	google.golang.org/grpc v1.59.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

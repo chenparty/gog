@@ -6,7 +6,9 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-var subscribes = map[string]MQTT.MessageHandler{}
+type MsgHandler func(ID uint16, topic string, payload []byte)
+
+var subscribes = map[string]MsgHandler{}
 var subTopicQos = map[string]byte{}
 var mqttClient MQTT.Client
 
@@ -38,7 +40,9 @@ func Connect(addr string, options ...Option) {
 		// 连接后自动订阅Topic
 		for key, sub := range subscribes {
 			qos, _ := subTopicQos[key]
-			client.Subscribe(key, qos, sub)
+			client.Subscribe(key, qos, func(client MQTT.Client, message MQTT.Message) {
+				sub(message.MessageID(), message.Topic(), message.Payload())
+			})
 		}
 	}
 	clientOptions.OnConnectionLost = func(client MQTT.Client, e error) {
@@ -76,11 +80,13 @@ func WithUserAndPass(username, pwd string) Option {
 }
 
 // Subscribe 订阅主题
-func Subscribe(topic string, qos byte, callback MQTT.MessageHandler) {
+func Subscribe(topic string, qos byte, callback MsgHandler) {
 	subscribes[topic] = callback
 	subTopicQos[topic] = qos
 	if mqttClient.IsConnected() {
-		if token := mqttClient.Subscribe(topic, qos, callback); token.Wait() && token.Error() != nil {
+		if token := mqttClient.Subscribe(topic, qos, func(client MQTT.Client, message MQTT.Message) {
+			callback(message.MessageID(), message.Topic(), message.Payload())
+		}); token.Wait() && token.Error() != nil {
 			zlog.Error().Str("topic", topic).Err(token.Error()).Msg("MQTT订阅失败")
 		}
 	}

@@ -28,11 +28,16 @@ func ContextWithValue(ctx context.Context, traceID string) context.Context {
 	return context.WithValue(ctx, ctxTraceIDKey, traceID)
 }
 
-// NewTraceContext 创建一个新的trace context
-func NewTraceContext(ctx context.Context) context.Context {
-	if traceID, ok := ctx.Value(ctxTraceIDKey).(string); ok {
+// NewTraceContextWithID 创建一个新的trace context, 使用自定义traceID
+func NewTraceContextWithID(traceID string) context.Context {
+	if len(traceID) > 0 {
 		return ContextWithValue(context.Background(), traceID)
 	}
+	return ContextWithValue(context.Background(), NewTraceID())
+}
+
+// NewTraceContext 创建一个新的trace context
+func NewTraceContext() context.Context {
 	return ContextWithValue(context.Background(), NewTraceID())
 }
 
