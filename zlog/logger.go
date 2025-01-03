@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -83,5 +84,13 @@ func Error() *zerolog.Event {
 // 3-再再上一层
 func getFunName(l int) string {
 	pc, _, _, _ := runtime.Caller(l)
-	return runtime.FuncForPC(pc).Name()
+	fullName := runtime.FuncForPC(pc).Name()
+
+	// 分割函数名
+	parts := strings.Split(fullName, ".")
+	// 确保至少有两个部分
+	if len(parts) > 2 {
+		return strings.Join(parts[len(parts)-2:], ".")
+	}
+	return fullName
 }

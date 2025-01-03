@@ -5,11 +5,12 @@ import (
 	"github.com/chenparty/gog/zlog"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
+	"io"
 	"time"
 )
 
 // GinLogger 日志
-func GinLogger() gin.HandlerFunc {
+func GinLogger(autoCopyRequestBody bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		//先打印请求头信息
 		path := c.Request.URL.Path
@@ -17,13 +18,20 @@ func GinLogger() gin.HandlerFunc {
 		if raw != "" {
 			path = path + "?" + raw
 		}
-		start := time.Now()
-		zlog.Info().Ctx(c.Request.Context()).
+
+		reqEvent := zlog.Info().Ctx(c.Request.Context()).
 			Str("method", c.Request.Method).
 			Str("path", path).
 			Str("client_ip", c.ClientIP()).
-			Str("user_agent", c.Request.UserAgent()).
-			Msg("GinRequest")
+			Str("user_agent", c.Request.UserAgent())
+		if autoCopyRequestBody && c.Request.Header.Get("Content-Type") == "application/json" {
+			b, _ := c.Copy().GetRawData()
+			reqEvent.Str("req_body", string(b))
+			// 重置请求体
+			c.Request.Body = io.NopCloser(bytes.NewReader(b))
+		}
+		start := time.Now()
+		reqEvent.Msg("GinRequest")
 
 		// 创建自定义的 ResponseWriter
 		customWriter := &CustomResponseWriter{
@@ -36,30 +44,30 @@ func GinLogger() gin.HandlerFunc {
 		c.Next()
 		// 等接口处理完后，拿到请求体和响应体打印
 		duration := time.Now().Sub(start)
-		var event *zerolog.Event
+		var respEvent *zerolog.Event
 		if c.Writer.Status() >= 400 && c.Writer.Status() < 500 {
-			event = zlog.Warn()
+			respEvent = zlog.Warn()
 		} else if c.Writer.Status() >= 500 {
-			event = zlog.Error()
+			respEvent = zlog.Error()
 		} else {
-			event = zlog.Info()
+			respEvent = zlog.Info()
 		}
 		val, isExist := getRequestBody(c)
 		if isExist {
 			requestBody, ok := val.([]byte)
 			if ok {
-				event = event.RawJSON("req_body", requestBody)
+				respEvent = respEvent.Str("req_body", string(requestBody))
 			} else {
-				event = event.Any("req_body", val)
+				respEvent = respEvent.Any("req_body", val)
 			}
 		}
 		// 获取响应的字节内容,太大的也不打印
 		if c.Writer.Size() > 0 && c.Writer.Size() < 2000 {
 			responseBody := customWriter.body
-			event.RawJSON("resp_body", responseBody.Bytes())
+			respEvent.Str("resp_body", string(responseBody.Bytes()))
 		}
 		// 打印
-		event.Ctx(c.Request.Context()).
+		respEvent.Ctx(c.Request.Context()).
 			Str("path", path).
 			Int("status", c.Writer.Status()).
 			Dur("duration", duration).

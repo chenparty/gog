@@ -14,7 +14,7 @@ func Init(release bool) {
 	}
 	g := gin.New()
 	g.Use(ginplugin.GinRequestIDForTrace())
-	g.Use(ginplugin.GinLogger())
+	g.Use(ginplugin.GinLogger(true))
 	g.Use(ginplugin.Recovery(true))
 	registryRouter(g)
 	err := g.Run(config.Get().Http.Addr)

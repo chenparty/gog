@@ -27,3 +27,5 @@ go.work.sum
 .idea/
 
 go.sum
+
+/gog.zip
