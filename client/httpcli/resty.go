@@ -16,20 +16,38 @@ func init() {
 		SetRetryWaitTime(time.Second)
 }
 
-func PostJson(ctx context.Context, url string, body any) {
-	resp, err := client.R().SetHeader("Content-Type", "application/json").SetBody(body).Post(url)
+func PostJson(ctx context.Context, url string, body any) (resp *resty.Response, err error) {
+	req := client.R().SetHeader("Content-Type", "application/json").SetBody(body)
+	zlog.Info().Ctx(ctx).Str("url", url).
+		Any("body", body).
+		Msg("PostJson-Request")
+	resp, err = req.Post(url)
 	if err != nil {
-		zlog.Error().Ctx(ctx).Err(err).Str("url", url).Msg("post error")
+		zlog.Error().Ctx(ctx).Err(err).Str("url", url).Msg("PostJson error")
 		return
 	}
-	zlog.Info().Ctx(ctx).Str("url", url).Str("status", resp.Status()).Dur("time", resp.Time()).Str("body", string(resp.Body())).Msg("请求结果")
+	zlog.Info().Ctx(ctx).Str("url", url).
+		Str("status", resp.Status()).
+		Dur("time", resp.Time()).
+		Str("body", string(resp.Body())).
+		Msg("PostJson-Response")
+	return
 }
 
-func Get(ctx context.Context, url string, param map[string]string) {
-	resp, err := client.R().SetQueryParams(param).Get(url)
+func Get(ctx context.Context, url string, queryParam map[string]string) (resp *resty.Response, err error) {
+	req := client.R().SetQueryParams(queryParam)
+	zlog.Info().Ctx(ctx).Str("url", url).
+		Any("body", queryParam).
+		Msg("Get-Request")
+	resp, err = req.Get(url)
 	if err != nil {
-		zlog.Error().Ctx(ctx).Err(err).Str("url", url).Msg("get error")
+		zlog.Error().Ctx(ctx).Err(err).Str("url", url).Msg("Get error")
 		return
 	}
-	zlog.Info().Ctx(ctx).Str("url", url).Str("status", resp.Status()).Dur("time", resp.Time()).Any("param", param).Msg("请求结果")
+	zlog.Info().Ctx(ctx).Str("url", url).
+		Str("status", resp.Status()).
+		Dur("time", resp.Time()).
+		Str("body", string(resp.Body())).
+		Msg("Get-Response")
+	return
 }
