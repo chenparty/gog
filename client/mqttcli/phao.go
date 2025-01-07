@@ -4,6 +4,7 @@ import (
 	"github.com/chenparty/gog/zlog"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/oklog/ulid/v2"
+	"time"
 )
 
 type MsgHandler func(ID uint16, topic string, payload []byte)
@@ -35,6 +36,9 @@ func Connect(addr string, options ...Option) {
 	clientOptions.SetClientID(opts.ClientID)
 	clientOptions.SetUsername(opts.Username)
 	clientOptions.SetPassword(opts.Password)
+	clientOptions.SetAutoReconnect(true)
+	clientOptions.SetConnectTimeout(10 * time.Second)
+	clientOptions.SetWriteTimeout(3 * time.Second)
 	clientOptions.OnConnect = func(client MQTT.Client) {
 		zlog.Info().Str("addr", addr).Msg("MQTT连接成功")
 		// 连接后自动订阅Topic
