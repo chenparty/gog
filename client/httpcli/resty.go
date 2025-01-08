@@ -16,11 +16,20 @@ func init() {
 		SetRetryWaitTime(time.Second)
 }
 
-func PostJson(ctx context.Context, url string, body any) (statusCode int, respBody []byte, err error) {
-	req := client.R().SetHeader("Content-Type", "application/json").SetBody(body)
+func PostJson(ctx context.Context, url string, header map[string]string, body any) (statusCode int, respBody []byte, err error) {
+	if header == nil {
+		header = make(map[string]string)
+	}
+	header["Content-Type"] = "application/json"
+	header["X-Request-ID"] = zlog.TraceIDFromContext(ctx)
+	req := client.R().
+		SetContext(ctx).
+		SetHeaders(header).
+		SetBody(body)
 	zlog.Info().Ctx(ctx).Str("url", url).
 		Any("body", body).
 		Msg("PostJson-Request")
+
 	resp, err := req.Post(url)
 	if err != nil {
 		zlog.Error().Ctx(ctx).Err(err).Str("url", url).Msg("PostJson error")
@@ -36,11 +45,16 @@ func PostJson(ctx context.Context, url string, body any) (statusCode int, respBo
 	return
 }
 
-func Get(ctx context.Context, url string, queryParam map[string]string) (statusCode int, respBody []byte, err error) {
-	req := client.R().SetQueryParams(queryParam)
+func Get(ctx context.Context, url string, header map[string]string, queryParam map[string]string) (statusCode int, respBody []byte, err error) {
+	if header == nil {
+		header = make(map[string]string)
+	}
+	header["X-Request-ID"] = zlog.TraceIDFromContext(ctx)
+	req := client.R().SetHeaders(header).SetQueryParams(queryParam)
 	zlog.Info().Ctx(ctx).Str("url", url).
 		Any("body", queryParam).
 		Msg("Get-Request")
+
 	resp, err := req.Get(url)
 	if err != nil {
 		zlog.Error().Ctx(ctx).Err(err).Str("url", url).Msg("Get error")
