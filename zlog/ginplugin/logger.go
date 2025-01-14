@@ -23,8 +23,9 @@ func GinLogger(autoCopyRequestBody bool) gin.HandlerFunc {
 			Str("method", c.Request.Method).
 			Str("path", path).
 			Str("client_ip", c.ClientIP()).
-			Str("user_agent", c.Request.UserAgent())
-		if autoCopyRequestBody && c.Request.Header.Get("Content-Type") == "application/json" {
+			Str("user_agent", c.Request.UserAgent()).
+			Str("content_type", c.ContentType())
+		if autoCopyRequestBody && c.Request.Method == "POST" {
 			b, _ := c.Copy().GetRawData()
 			reqEvent.Str("req_body", string(b))
 			// 重置请求体
