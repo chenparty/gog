@@ -13,6 +13,7 @@ func Init(release bool) {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	g := gin.New()
+	g.MaxMultipartMemory = 10 << 20 // 设置请求最大体积为 10 MB, 防止恶意请求
 	g.Use(ginplugin.GinRequestIDForTrace())
 	g.Use(ginplugin.GinLogger(true))
 	g.Use(ginplugin.Recovery(true))
