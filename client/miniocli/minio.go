@@ -6,6 +6,8 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"io"
+	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -86,6 +88,16 @@ func DelObject(ctx context.Context, bucketName, objName string) (err error) {
 // PreSignedGetObject 生成带有授权访问的临时URL
 func PreSignedGetObject(ctx context.Context, bucketName, objName string, expiration time.Duration) (url string, err error) {
 	preSignedURL, err := minioClient.PresignedGetObject(ctx, bucketName, objName, expiration, nil)
+	if err != nil {
+		return
+	}
+	url = preSignedURL.String()
+	return
+}
+
+// PreSignedGetObjectByCustom 生成带有授权访问的临时URL,可自定义请求参数和请求头
+func PreSignedGetObjectByCustom(ctx context.Context, bucketName, objName string, expiration time.Duration, reqParams url.Values, presignExtraHeaders http.Header) (url string, err error) {
+	preSignedURL, err := minioClient.PresignHeader(ctx, http.MethodGet, bucketName, objName, expiration, reqParams, presignExtraHeaders)
 	if err != nil {
 		return
 	}
