@@ -3,6 +3,7 @@ package httpcli
 import (
 	"context"
 	"github.com/chenparty/gog/zlog"
+	"github.com/chenparty/gog/zlog/ginplugin"
 	"github.com/go-resty/resty/v2"
 	"time"
 )
@@ -21,7 +22,7 @@ func PostJson(ctx context.Context, url string, header map[string]string, body an
 		header = make(map[string]string)
 	}
 	header["Content-Type"] = "application/json"
-	header["X-Request-ID"] = zlog.TraceIDFromContext(ctx)
+	header[ginplugin.HeaderRequestID] = zlog.TraceIDFromContext(ctx)
 	req := client.R().
 		SetContext(ctx).
 		SetHeaders(header).
@@ -49,7 +50,7 @@ func Get(ctx context.Context, url string, header map[string]string, queryParam m
 	if header == nil {
 		header = make(map[string]string)
 	}
-	header["X-Request-ID"] = zlog.TraceIDFromContext(ctx)
+	header[ginplugin.HeaderRequestID] = zlog.TraceIDFromContext(ctx)
 	req := client.R().SetHeaders(header).SetQueryParams(queryParam)
 	zlog.Info().Ctx(ctx).Str("url", url).
 		Any("body", queryParam).
