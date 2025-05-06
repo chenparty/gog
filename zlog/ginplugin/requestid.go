@@ -5,13 +5,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const headerXRequestID = "X-Request-ID"
+const HeaderZRequestID = "Z-Request-ID"
 
 // GinRequestIDForTrace gin middleware for request id
 func GinRequestIDForTrace(allowedRequestIDs ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if len(allowedRequestIDs) == 0 {
-			allowedRequestIDs = []string{headerXRequestID}
+			allowedRequestIDs = []string{HeaderZRequestID}
 		}
 		var rid string
 		for _, id := range allowedRequestIDs {
@@ -24,7 +24,7 @@ func GinRequestIDForTrace(allowedRequestIDs ...string) gin.HandlerFunc {
 		}
 		handleRequest(c, rid)
 
-		c.Header(headerXRequestID, rid)
+		c.Header(HeaderZRequestID, rid)
 		c.Next()
 	}
 }
