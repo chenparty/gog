@@ -18,7 +18,7 @@ var (
 	requestInfoCache     otter.Cache[string, *requestInfo] // IP与请求信息的映射
 	defaultMaxRequests   = 50                              // 默认允许的最大请求数
 	defaultTimeWindow    = 3 * time.Second                 // 默认时间窗口
-	defaultCacheCapacity = 100_000                         // 默认默认缓存容量
+	defaultCacheCapacity = 100_000                         // 默认缓存容量
 	defaultCacheExpire   = 1 * time.Minute                 // 默认缓存过期时间
 )
 
@@ -43,7 +43,7 @@ func IPRateLimit(ipCacheCapacity int, timeWindow time.Duration, maxRequests int)
 	return func(c *gin.Context) {
 		userAgent := c.Request.UserAgent()
 		// 如果是微服务内部调用放行
-		if strings.HasPrefix(userAgent, "go-resty") {
+		if strings.HasPrefix(userAgent, "go-resty") && c.Request.Header.Get(HeaderRequestID) != "" {
 			c.Next()
 			return
 		}

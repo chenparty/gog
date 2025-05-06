@@ -90,7 +90,10 @@ func getFunName(l int) string {
 	parts := strings.Split(fullName, ".")
 	// 确保至少有两个部分
 	if len(parts) > 2 {
-		return strings.Join(parts[len(parts)-2:], ".")
+		subName := strings.Join(parts[:len(parts)-2], ".")
+		if len(subName) > 3 {
+			return subName
+		}
 	}
 	return fullName
 }
