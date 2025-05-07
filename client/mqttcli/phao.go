@@ -67,10 +67,12 @@ func Close() {
 // WithClientID 设置客户端ID,仅仅作为前缀时会自动拼接随机串
 func WithClientID(clientID string, asPrefix bool) Option {
 	return func(options *Options) {
-		if asPrefix {
-			options.ClientID = clientID + "-" + options.ClientID
-		} else {
-			options.ClientID = clientID
+		if len(clientID) > 0 {
+			if asPrefix {
+				options.ClientID = clientID + "-" + options.ClientID
+			} else {
+				options.ClientID = clientID
+			}
 		}
 	}
 }
