@@ -35,10 +35,11 @@ func Connect(servers []string, options ...Option) {
 	}
 	var err error
 	cli, err = clientv3.New(clientv3.Config{
-		Endpoints:   servers,
-		DialTimeout: 3 * time.Second,
-		Username:    opts.Username,
-		Password:    opts.Password,
+		Endpoints:           servers,
+		DialTimeout:         3 * time.Second,
+		Username:            opts.Username,
+		Password:            opts.Password,
+		PermitWithoutStream: true,
 	})
 	if err != nil {
 		zlog.Error().Err(err).Str("servers", strings.Join(servers, ",")).Msg("etcd连接失败")

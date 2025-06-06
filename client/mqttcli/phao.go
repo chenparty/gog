@@ -1,6 +1,7 @@
 package mqttcli
 
 import (
+	"crypto/tls"
 	"github.com/chenparty/gog/zlog"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/oklog/ulid/v2"
@@ -17,6 +18,8 @@ type Options struct {
 	ClientID string // 客户端ID,不设置时会自动随机生成
 	Username string // 用户名
 	Password string // 密码
+
+	tls *tls.Config
 }
 
 type Option func(*Options)
@@ -34,8 +37,16 @@ func Connect(addr string, options ...Option) {
 	clientOptions := MQTT.NewClientOptions()
 	clientOptions.AddBroker(addr)
 	clientOptions.SetClientID(opts.ClientID)
-	clientOptions.SetUsername(opts.Username)
-	clientOptions.SetPassword(opts.Password)
+
+	if opts.Username != "" {
+		clientOptions.SetUsername(opts.Username)
+		clientOptions.SetPassword(opts.Password)
+	}
+
+	if opts.tls != nil {
+		clientOptions.SetTLSConfig(opts.tls)
+	}
+
 	clientOptions.SetAutoReconnect(true)
 	clientOptions.SetConnectTimeout(10 * time.Second)
 	clientOptions.SetWriteTimeout(3 * time.Second)
@@ -77,11 +88,24 @@ func WithClientID(clientID string, asPrefix bool) Option {
 	}
 }
 
-// WithUserAndPass 设置用户名和密码
-func WithUserAndPass(username, pwd string) Option {
+// AuthWithUser 用户名密码认证
+func AuthWithUser(username, pwd string) Option {
 	return func(options *Options) {
 		options.Username = username
 		options.Password = pwd
+	}
+}
+
+// AuthWithTLS TLS认证
+func AuthWithTLS(certFile, keyFile string) Option {
+	return func(options *Options) {
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			return
+		}
+		options.tls = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+		}
 	}
 }
 
