@@ -9,6 +9,12 @@ import (
 
 // IPWhitelist 创建IP白名单中间件
 func IPWhitelist(whitelist []string) gin.HandlerFunc {
+	// 白名单为空时，允许所有IP访问
+	if len(whitelist) == 0 {
+		return func(c *gin.Context) {
+			c.Next()
+		}
+	}
 	// 预处理白名单：解析为IPNet对象
 	ipNets := make([]*net.IPNet, 0, len(whitelist))
 	for _, item := range whitelist {
