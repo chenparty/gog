@@ -93,14 +93,27 @@ func DB(ctx context.Context) *gorm.DB {
 	return db.WithContext(ctx)
 }
 
-type TransactionFunc func(tx *gorm.DB) error
-
-// StartTransaction 开启事务
-func StartTransaction(ctx context.Context, trans TransactionFunc) error {
-	return db.WithContext(ctx).Transaction(trans)
-}
-
 // IsRecordNotFoundErr 判断是否记录不存在错误
 func IsRecordNotFoundErr(err error) bool {
 	return errors.Is(err, gorm.ErrRecordNotFound)
+}
+
+// TxOperation 事务操作
+type TxOperation func(tx *gorm.DB) error
+
+// StartTransaction 开启事务
+func StartTransaction(ctx context.Context, trans TxOperation) error {
+	return db.WithContext(ctx).Transaction(trans)
+}
+
+// ExecuteInTx 批量执行事务
+func ExecuteInTx(ctx context.Context, ops ...TxOperation) error {
+	return StartTransaction(ctx, func(tx *gorm.DB) error {
+		for _, op := range ops {
+			if err := op(tx); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

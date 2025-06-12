@@ -15,8 +15,6 @@ var client *resty.Client
 func init() {
 	client = resty.New().
 		SetTimeout(10*time.Second).
-		SetRetryCount(1).
-		SetRetryWaitTime(time.Second).
 		SetHeader("User-Agent", "httpcli/1.0")
 }
 

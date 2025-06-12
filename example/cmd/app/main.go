@@ -12,7 +12,7 @@ import (
 
 func init() {
 	var configFile string
-	flag.StringVar(&configFile, "user", "example/config/app.yaml", "specify user config file path")
+	flag.StringVar(&configFile, "conf", "example/config/app.yaml", "specify user config file path")
 	flag.Parse()
 	// 初始化配置
 	config.InitConfig(configFile)
@@ -25,7 +25,7 @@ func init() {
 func main() {
 	cfg := config.Get()
 	mysqlcli.Connect(cfg.Mysql.Addr, cfg.Mysql.User, cfg.Mysql.Pwd, cfg.Mysql.DbName)
-	mqttcli.Connect(cfg.Mqtt.Addr, mqttcli.WithUserAndPass(cfg.Mqtt.User, cfg.Mqtt.Pwd))
+	mqttcli.Connect(cfg.Mqtt.Addr, mqttcli.AuthWithUser(cfg.Mqtt.User, cfg.Mqtt.Pwd))
 	mq.InitSubscription()
 	api.Init(cfg.Release)
 }
