@@ -15,7 +15,7 @@ type TraceHook struct{}
 func (h *TraceHook) Run(e *zerolog.Event, _ zerolog.Level, _ string) {
 	// 将 trace_id 添加到日志条目
 	traceID, _ := e.GetCtx().Value(ctxTraceIDKey).(string)
-	e.Str("trace_id", traceID)
+	e.Str("trace_no", traceID)
 }
 
 // NewTraceID 生成一个新的 trace_id
