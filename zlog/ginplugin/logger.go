@@ -10,7 +10,7 @@ import (
 )
 
 // GinLogger 日志
-func GinLogger(autoCopyRequestBody bool) gin.HandlerFunc {
+func GinLogger(autoCopyRequestBody bool, maxLogBodySize int) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		//先打印请求头信息
 		path := c.Request.URL.Path
@@ -63,7 +63,10 @@ func GinLogger(autoCopyRequestBody bool) gin.HandlerFunc {
 			}
 		}
 		// 获取响应的字节内容,太大的也不打印
-		if c.Writer.Size() > 0 && c.Writer.Size() < 2000 {
+		if maxLogBodySize <= 0 {
+			maxLogBodySize = 2000
+		}
+		if c.Writer.Size() > 0 && c.Writer.Size() < maxLogBodySize {
 			responseBody := customWriter.body
 			respEvent.Str("resp_body", string(responseBody.Bytes()))
 		}
