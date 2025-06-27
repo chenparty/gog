@@ -15,8 +15,9 @@ func Init(release bool) {
 	g := gin.New()
 	g.MaxMultipartMemory = 10 << 20 // 设置请求最大体积为 10 MB, 防止恶意请求
 	g.Use(ginplugin.GinRequestIDForTrace())
-	g.Use(ginplugin.GinLogger(true))
+	g.Use(ginplugin.GinLogger(true, 2000))
 	g.Use(ginplugin.Recovery(true))
+	gin.Recovery()
 	registryRouter(g)
 	err := g.Run(config.Get().Http.Addr)
 	if err != nil {
