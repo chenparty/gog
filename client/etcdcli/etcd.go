@@ -148,13 +148,23 @@ func (l *Locker) UnLock(ctx context.Context) (err error) {
 	return
 }
 
-// NewLockerAndLock 新建锁+锁key
+// NewLockerAndLock 新建阻塞锁+锁key
 func NewLockerAndLock(ctx context.Context, lockKey string, ttl int) (lock *Locker, err error) {
 	lock, err = NewLocker(ttl)
 	if err != nil {
 		return
 	}
 	err = lock.Lock(ctx, lockKey)
+	return
+}
+
+// NewTryLockerAndLock 新建尝试锁+锁key
+func NewTryLockerAndLock(ctx context.Context, lockKey string, ttl int) (lock *Locker, err error) {
+	lock, err = NewLocker(ttl)
+	if err != nil {
+		return
+	}
+	err = lock.TryLock(ctx, lockKey)
 	return
 }
 
