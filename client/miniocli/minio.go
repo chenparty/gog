@@ -13,6 +13,13 @@ import (
 
 var minioClient *minio.Client
 
+func Client() *minio.Client {
+	if minioClient == nil {
+		panic("请先调用Connect方法连接minio")
+	}
+	return minioClient
+}
+
 type Options struct {
 	AccessKeyID     string
 	SecretAccessKey string
