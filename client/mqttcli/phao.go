@@ -2,17 +2,22 @@ package mqttcli
 
 import (
 	"crypto/tls"
+	"fmt"
 	"github.com/chenparty/gog/zlog"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/oklog/ulid/v2"
+	"sync"
 	"time"
 )
 
 type MsgHandler func(ID uint16, topic string, payload []byte)
 
-var subscribes = map[string]MsgHandler{}
-var subTopicQos = map[string]byte{}
-var mqttClient MQTT.Client
+var (
+	subscribes  = map[string]MsgHandler{}
+	subTopicQos = map[string]byte{}
+	mu          sync.RWMutex // 保护subscribes和subTopicQos
+	mqttClient  MQTT.Client
+)
 
 type Options struct {
 	ClientID string // 客户端ID,不设置时会自动随机生成
@@ -48,21 +53,17 @@ func Connect(addr string, options ...Option) {
 	}
 
 	clientOptions.SetAutoReconnect(true)
-	clientOptions.SetConnectTimeout(10 * time.Second)
-	clientOptions.SetWriteTimeout(3 * time.Second)
-	clientOptions.OnConnect = func(client MQTT.Client) {
-		zlog.Info().Str("addr", addr).Msg("MQTT连接成功")
-		// 连接后自动订阅Topic
-		for key, sub := range subscribes {
-			qos, _ := subTopicQos[key]
-			client.Subscribe(key, qos, func(client MQTT.Client, message MQTT.Message) {
-				sub(message.MessageID(), message.Topic(), message.Payload())
-			})
-		}
-	}
-	clientOptions.OnConnectionLost = func(client MQTT.Client, e error) {
-		zlog.Error().Str("addr", addr).Err(e).Msg("MQTT连接断开")
-	}
+	clientOptions.SetConnectTimeout(30 * time.Second)
+	clientOptions.SetWriteTimeout(10 * time.Second)
+	clientOptions.SetKeepAlive(60 * time.Second)            // 设置KeepAlive为60秒，根据实际情况调整
+	clientOptions.SetPingTimeout(10 * time.Second)          // 设置PingTimeout为10秒，根据实际情况调整
+	clientOptions.SetMaxReconnectInterval(30 * time.Second) // 最大重连间隔
+
+	// 添加连接状态监控
+	clientOptions.OnConnect = onConnectHandler(addr)
+	clientOptions.OnConnectionLost = onConnectionLostHandler(addr)
+	clientOptions.OnReconnecting = onReconnectingHandler(addr)
+
 	mqttClient = MQTT.NewClient(clientOptions)
 	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
 		zlog.Error().Str("addr", addr).Err(token.Error()).Msg("MQTT连接失败")
@@ -70,9 +71,51 @@ func Connect(addr string, options ...Option) {
 	}
 }
 
+// 连接成功回调
+func onConnectHandler(addr string) func(MQTT.Client) {
+	return func(client MQTT.Client) {
+		zlog.Info().Str("addr", addr).Msg("MQTT连接成功")
+
+		// 使用互斥锁保护全局变量访问
+		mu.RLock()
+		defer mu.RUnlock()
+
+		// 连接后重新订阅所有主题
+		for topic, handler := range subscribes {
+			qos := subTopicQos[topic]
+			token := client.Subscribe(topic, qos, func(client MQTT.Client, message MQTT.Message) {
+				handler(message.MessageID(), message.Topic(), message.Payload())
+			})
+
+			if token.Wait() && token.Error() != nil {
+				zlog.Error().Str("topic", topic).Err(token.Error()).Msg("MQTT重新订阅失败")
+			} else {
+				zlog.Debug().Str("topic", topic).Msg("MQTT重新订阅成功")
+			}
+		}
+	}
+}
+
+// 连接断开回调
+func onConnectionLostHandler(addr string) func(MQTT.Client, error) {
+	return func(client MQTT.Client, err error) {
+		zlog.Error().Str("addr", addr).Err(err).Msg("MQTT连接断开")
+	}
+}
+
+// 重连中回调
+func onReconnectingHandler(addr string) func(MQTT.Client, *MQTT.ClientOptions) {
+	return func(client MQTT.Client, opts *MQTT.ClientOptions) {
+		zlog.Warn().Str("addr", addr).Msg("MQTT正在尝试重新连接...")
+	}
+}
+
 // Close 关闭MQTT连接
 func Close() {
-	mqttClient.Disconnect(200)
+	if mqttClient != nil && mqttClient.IsConnected() {
+		mqttClient.Disconnect(250) // 增加断开等待时间
+		zlog.Info().Msg("MQTT连接已关闭")
+	}
 }
 
 // WithClientID 设置客户端ID,仅仅作为前缀时会自动拼接随机串
@@ -111,23 +154,50 @@ func AuthWithTLS(certFile, keyFile string) Option {
 
 // Subscribe 订阅主题
 func Subscribe(topic string, qos byte, callback MsgHandler) {
+	mu.Lock()
 	subscribes[topic] = callback
 	subTopicQos[topic] = qos
+	mu.Unlock()
 	if mqttClient.IsConnected() {
-		if token := mqttClient.Subscribe(topic, qos, func(client MQTT.Client, message MQTT.Message) {
+		token := mqttClient.Subscribe(topic, qos, func(client MQTT.Client, message MQTT.Message) {
 			callback(message.MessageID(), message.Topic(), message.Payload())
-		}); token.Wait() && token.Error() != nil {
+		})
+		if token.Wait() && token.Error() != nil {
 			zlog.Error().Str("topic", topic).Err(token.Error()).Msg("MQTT订阅失败")
+		} else {
+			zlog.Debug().Str("topic", topic).Msg("MQTT订阅成功")
 		}
 	}
 }
 
 // Publish 发布消息
 func Publish(topic string, qos byte, payload any) error {
-	if token := mqttClient.Publish(topic, qos, false, payload); token.Wait() && token.Error() != nil {
+	if mqttClient == nil || !mqttClient.IsConnected() {
+		zlog.Error().Str("topic", topic).Msg("MQTT客户端未连接，发布失败")
+		return fmt.Errorf("MQTT客户端未连接")
+	}
+
+	token := mqttClient.Publish(topic, qos, false, payload)
+	if token.Wait() && token.Error() != nil {
 		zlog.Error().Str("topic", topic).Err(token.Error()).Msg("MQTT发布失败")
 		return token.Error()
 	}
 	zlog.Info().Str("topic", topic).Msg("MQTT发布成功")
 	return nil
+}
+
+// IsConnected 连接状态检查
+func IsConnected() bool {
+	return mqttClient != nil && mqttClient.IsConnected()
+}
+
+// GetConnectionStatus 获取客户端状态
+func GetConnectionStatus() string {
+	if mqttClient == nil {
+		return "未初始化"
+	}
+	if mqttClient.IsConnected() {
+		return "已连接"
+	}
+	return "未连接"
 }
