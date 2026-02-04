@@ -14,6 +14,7 @@
 ### 2. **客户端（Client）**
 - 支持连接以下常见服务：
   - **MySQL**
+  - **PostgreSQL**
   - **Redis**
   - **NATS**
   - **MQTT**
