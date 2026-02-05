@@ -32,7 +32,10 @@ func Connect(addrs []string, options ...Option) {
 	uniOpt := &redis.UniversalOptions{
 		Addrs:    addrs,
 		Username: opts.Username, Password: opts.Password, DB: opts.DB,
-		MasterName: opts.MasterName, SentinelUsername: opts.SentinelUsername, SentinelPassword: opts.SentinelPassword,
+		MasterName:       opts.MasterName,
+		SentinelUsername: opts.SentinelUsername,
+		SentinelPassword: opts.SentinelPassword,
+		IsClusterMode:    len(addrs) > 1,
 	}
 	redisClient = redis.NewUniversalClient(uniOpt)
 	//检测是否连接成功

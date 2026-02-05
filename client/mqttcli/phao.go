@@ -3,11 +3,12 @@ package mqttcli
 import (
 	"crypto/tls"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/chenparty/gog/zlog"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/oklog/ulid/v2"
-	"sync"
-	"time"
 )
 
 type MsgHandler func(ID uint16, topic string, payload []byte)
@@ -55,7 +56,7 @@ func Connect(addr string, options ...Option) {
 	clientOptions.SetAutoReconnect(true)
 	clientOptions.SetConnectTimeout(30 * time.Second)
 	clientOptions.SetWriteTimeout(10 * time.Second)
-	clientOptions.SetKeepAlive(60 * time.Second)            // 设置KeepAlive为60秒，根据实际情况调整
+	clientOptions.SetKeepAlive(30 * time.Second)            // 设置KeepAlive为60秒，根据实际情况调整
 	clientOptions.SetPingTimeout(10 * time.Second)          // 设置PingTimeout为10秒，根据实际情况调整
 	clientOptions.SetMaxReconnectInterval(30 * time.Second) // 最大重连间隔
 
@@ -83,8 +84,10 @@ func onConnectHandler(addr string) func(MQTT.Client) {
 		// 连接后重新订阅所有主题
 		for topic, handler := range subscribes {
 			qos := subTopicQos[topic]
-			token := client.Subscribe(topic, qos, func(client MQTT.Client, message MQTT.Message) {
-				handler(message.MessageID(), message.Topic(), message.Payload())
+			topicCopy := topic
+			handlerCopy := handler
+			token := client.Subscribe(topicCopy, qos, func(client MQTT.Client, message MQTT.Message) {
+				handlerCopy(message.MessageID(), message.Topic(), message.Payload())
 			})
 
 			if token.Wait() && token.Error() != nil {
@@ -144,6 +147,8 @@ func AuthWithTLS(certFile, keyFile string) Option {
 	return func(options *Options) {
 		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 		if err != nil {
+			// 更好的做法是在 Options 中增加一个 error 字段，在 NewClient 时检查
+			zlog.Error().Err(err).Str("cert", certFile).Msg("加载 TLS 证书失败")
 			return
 		}
 		options.tls = &tls.Config{
@@ -158,7 +163,7 @@ func Subscribe(topic string, qos byte, callback MsgHandler) {
 	subscribes[topic] = callback
 	subTopicQos[topic] = qos
 	mu.Unlock()
-	if mqttClient.IsConnected() {
+	if mqttClient != nil && mqttClient.IsConnected() {
 		token := mqttClient.Subscribe(topic, qos, func(client MQTT.Client, message MQTT.Message) {
 			callback(message.MessageID(), message.Topic(), message.Payload())
 		})
