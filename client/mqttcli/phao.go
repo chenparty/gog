@@ -75,25 +75,46 @@ func Connect(addr string, options ...Option) {
 // 连接成功回调
 func onConnectHandler(addr string) func(MQTT.Client) {
 	return func(client MQTT.Client) {
-		zlog.Info().Str("addr", addr).Msg("MQTT连接成功")
+		zlog.Info().Str("addr", addr).Msg("MQTT 连接成功")
 
-		// 使用互斥锁保护全局变量访问
 		mu.RLock()
-		defer mu.RUnlock()
+		subscribeSnapshot := make([]struct {
+			topic   string
+			qos     byte
+			handler func(uint16, string, []byte)
+		}, 0, len(subscribes))
 
-		// 连接后重新订阅所有主题
 		for topic, handler := range subscribes {
-			qos := subTopicQos[topic]
-			topicCopy := topic
-			handlerCopy := handler
-			token := client.Subscribe(topicCopy, qos, func(client MQTT.Client, message MQTT.Message) {
-				handlerCopy(message.MessageID(), message.Topic(), message.Payload())
+			qos, ok := subTopicQos[topic]
+			if !ok {
+				qos = 0
+				zlog.Warn().Str("topic", topic).Msg("QoS 未配置，使用默认值 0")
+			}
+			subscribeSnapshot = append(subscribeSnapshot, struct {
+				topic   string
+				qos     byte
+				handler func(uint16, string, []byte)
+			}{
+				topic:   topic,
+				qos:     qos,
+				handler: handler,
+			})
+		}
+		mu.RUnlock()
+
+		for _, sub := range subscribeSnapshot {
+			token := client.Subscribe(sub.topic, sub.qos, func(client MQTT.Client, message MQTT.Message) {
+				sub.handler(message.MessageID(), message.Topic(), message.Payload())
 			})
 
-			if token.Wait() && token.Error() != nil {
-				zlog.Error().Str("topic", topic).Err(token.Error()).Msg("MQTT重新订阅失败")
+			if !token.WaitTimeout(3 * time.Second) {
+				zlog.Error().Str("topic", sub.topic).Msg("MQTT 重新订阅超时")
+				continue
+			}
+			if err := token.Error(); err != nil {
+				zlog.Error().Str("topic", sub.topic).Err(err).Msg("MQTT 重新订阅失败")
 			} else {
-				zlog.Debug().Str("topic", topic).Msg("MQTT重新订阅成功")
+				zlog.Debug().Str("topic", sub.topic).Msg("MQTT 重新订阅成功")
 			}
 		}
 	}
@@ -163,31 +184,44 @@ func Subscribe(topic string, qos byte, callback MsgHandler) {
 	subscribes[topic] = callback
 	subTopicQos[topic] = qos
 	mu.Unlock()
-	if mqttClient != nil && mqttClient.IsConnected() {
-		token := mqttClient.Subscribe(topic, qos, func(client MQTT.Client, message MQTT.Message) {
-			callback(message.MessageID(), message.Topic(), message.Payload())
-		})
-		if token.Wait() && token.Error() != nil {
-			zlog.Error().Str("topic", topic).Err(token.Error()).Msg("MQTT订阅失败")
-		} else {
-			zlog.Debug().Str("topic", topic).Msg("MQTT订阅成功")
-		}
+	if mqttClient == nil || !mqttClient.IsConnected() {
+		zlog.Error().Str("topic", topic).Msg("MQTT 客户端未连接，中断订阅")
+		return
+	}
+	token := mqttClient.Subscribe(topic, qos, func(client MQTT.Client, message MQTT.Message) {
+		callback(message.MessageID(), message.Topic(), message.Payload())
+	})
+	if !token.WaitTimeout(3 * time.Second) {
+		zlog.Error().Str("topic", topic).Msg("MQTT 订阅超时")
+		return
+	}
+
+	if err := token.Error(); err != nil {
+		zlog.Error().Str("topic", topic).Err(err).Msg("MQTT 订阅失败")
+	} else {
+		zlog.Debug().Str("topic", topic).Msg("MQTT 订阅成功")
 	}
 }
 
 // Publish 发布消息
 func Publish(topic string, qos byte, payload any) error {
 	if mqttClient == nil || !mqttClient.IsConnected() {
-		zlog.Error().Str("topic", topic).Msg("MQTT客户端未连接，发布失败")
-		return fmt.Errorf("MQTT客户端未连接")
+		zlog.Error().Str("topic", topic).Msg("MQTT 客户端未连接，发布失败")
+		return fmt.Errorf("MQTT 客户端未连接")
 	}
 
 	token := mqttClient.Publish(topic, qos, false, payload)
-	if token.Wait() && token.Error() != nil {
-		zlog.Error().Str("topic", topic).Err(token.Error()).Msg("MQTT发布失败")
-		return token.Error()
+	if !token.WaitTimeout(5 * time.Second) {
+		zlog.Error().Str("topic", topic).Msg("MQTT 发布超时")
+		return fmt.Errorf("MQTT 发布超时")
 	}
-	zlog.Info().Str("topic", topic).Msg("MQTT发布成功")
+
+	if err := token.Error(); err != nil {
+		zlog.Error().Str("topic", topic).Err(err).Msg("MQTT 发布失败")
+		return err
+	}
+
+	zlog.Debug().Str("topic", topic).Msg("MQTT 发布成功")
 	return nil
 }
 
