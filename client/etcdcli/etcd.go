@@ -76,22 +76,28 @@ func Close() {
 	_ = cli.Close()
 }
 
-// Put 设置key, ttl为租约期, 单位为秒
+// Put 设置 key, ttl 为租约期，单位为秒
 func Put(ctx context.Context, key, value string, ttl int64) (err error) {
 	if ttl <= 0 {
 		_, err = cli.Put(ctx, key, value)
 		return
 	}
 	// 创建一个租约对象
-	var lease clientv3.Lease
-	lease = clientv3.NewLease(cli)
+	lease := clientv3.NewLease(cli)
 	// 根据时间，生成一个租约
-	var leaseResp *clientv3.LeaseGrantResponse
-	leaseResp, err = lease.Grant(ctx, ttl)
+	leaseResp, err := lease.Grant(ctx, ttl)
 	if err != nil {
+		_ = lease.Close()
 		return
 	}
-	// 设置key，并绑定租约
+	// 确保关闭租约对象，避免资源泄漏
+	defer func() {
+		closeErr := lease.Close()
+		if closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
+	// 设置 key，并绑定租约
 	_, err = cli.Put(ctx, key, value, clientv3.WithLease(leaseResp.ID))
 	return
 }

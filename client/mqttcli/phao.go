@@ -179,28 +179,30 @@ func AuthWithTLS(certFile, keyFile string) Option {
 }
 
 // Subscribe 订阅主题
-func Subscribe(topic string, qos byte, callback MsgHandler) {
+func Subscribe(topic string, qos byte, callback MsgHandler) error {
 	mu.Lock()
 	subscribes[topic] = callback
 	subTopicQos[topic] = qos
 	mu.Unlock()
 	if mqttClient == nil || !mqttClient.IsConnected() {
 		zlog.Error().Str("topic", topic).Msg("MQTT 客户端未连接，中断订阅")
-		return
+		return fmt.Errorf("MQTT 客户端未连接")
 	}
 	token := mqttClient.Subscribe(topic, qos, func(client MQTT.Client, message MQTT.Message) {
 		callback(message.MessageID(), message.Topic(), message.Payload())
 	})
 	if !token.WaitTimeout(3 * time.Second) {
 		zlog.Error().Str("topic", topic).Msg("MQTT 订阅超时")
-		return
+		return fmt.Errorf("MQTT 订阅超时")
 	}
 
 	if err := token.Error(); err != nil {
 		zlog.Error().Str("topic", topic).Err(err).Msg("MQTT 订阅失败")
-	} else {
-		zlog.Debug().Str("topic", topic).Msg("MQTT 订阅成功")
+		return err
 	}
+
+	zlog.Debug().Str("topic", topic).Msg("MQTT 订阅成功")
+	return nil
 }
 
 // Publish 发布消息

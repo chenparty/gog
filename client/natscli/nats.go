@@ -57,12 +57,14 @@ func Connect(clientName string, servers []string, options ...Option) {
 	if opts.Username != "" && opts.Password != "" {
 		natsOpts = append(natsOpts, nats.UserInfo(opts.Username, opts.Password))
 	} else if opts.NKeySeedFile != "" {
-		natsOpt, e := nats.NkeyOptionFromSeed(opts.NKeySeedFile)
+		var natsOpt nats.Option
+		var e error
+		natsOpt, e = nats.NkeyOptionFromSeed(opts.NKeySeedFile)
 		if e != nil {
-			zlog.Error().Err(err).Msg("NkeyOptionFromSeed")
-		} else {
-			natsOpts = append(natsOpts, natsOpt)
+			zlog.Error().Err(e).Str("seedFile", opts.NKeySeedFile).Msg("NkeyOptionFromSeed")
+			panic(e) // NKey 认证失败应该终止启动
 		}
+		natsOpts = append(natsOpts, natsOpt)
 	} else if opts.Token != "" {
 		natsOpts = append(natsOpts, nats.Token(opts.Token))
 	}
@@ -115,9 +117,17 @@ func WithToken(token string) Option {
 	}
 }
 
-// WithJetStream 是否启用JetStream
+// WithJetStream 是否启用 JetStream
 func WithJetStream(enable bool) Option {
 	return func(options *Options) {
 		options.EnableJetStream = enable
+	}
+}
+
+// Close 关闭 NATS 连接和 JetStream 上下文
+func Close() {
+	if nc != nil {
+		nc.Close()
+		zlog.Info().Msg("NATS 连接已关闭")
 	}
 }

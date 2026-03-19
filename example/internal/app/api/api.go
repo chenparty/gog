@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/chenparty/gog/example/config"
+	"github.com/chenparty/gog/example/config/app"
 	"github.com/chenparty/gog/example/internal/app/api/handler/user"
 	userService "github.com/chenparty/gog/example/internal/app/api/service/user"
 	"github.com/chenparty/gog/zlog/ginplugin"
@@ -17,9 +17,8 @@ func Init(release bool) {
 	g.Use(ginplugin.GinRequestIDForTrace())
 	g.Use(ginplugin.GinLogger(true, 2000))
 	g.Use(ginplugin.Recovery(true))
-	gin.Recovery()
 	registryRouter(g)
-	err := g.Run(config.Get().Http.Addr)
+	err := g.Run(app.Get().Http.Addr)
 	if err != nil {
 		panic(err)
 	}

@@ -12,7 +12,7 @@ type RedisValueTypes interface {
 	int | int64 | string | bool | []byte
 }
 
-// Get 获取key的值
+// Get 获取 key 的值
 func Get[T RedisValueTypes](ctx context.Context, key string) (val T, isNotExist bool, err error) {
 	var result any
 	switch any(val).(type) {
@@ -28,14 +28,21 @@ func Get[T RedisValueTypes](ctx context.Context, key string) (val T, isNotExist 
 		result, err = redisClient.Get(ctx, key).Bytes()
 	default:
 		err = errors.New("redis get with unsupported type")
+		return
 	}
 	if err != nil && errors.Is(err, redis.Nil) {
 		isNotExist = true
 		err = nil
+		return
 	}
-	val, ok := result.(T)
+	if err != nil {
+		return
+	}
+	// 类型断言，如果失败则返回明确的错误信息
+	var ok bool
+	val, ok = result.(T)
 	if !ok {
-		err = fmt.Errorf("failed to cast result to type %T", val)
+		err = fmt.Errorf("failed to cast result to type %T, got %T", val, result)
 	}
 	return
 }

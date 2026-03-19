@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"gorm.io/gorm/logger"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -67,10 +68,20 @@ func Connect(addr, user, pwd, dbName string, options ...Option) {
 			Logger: newGORMLogger(opts),
 		})
 		if err != nil {
-			zlog.Error().Str("addr", addr).Err(err).Msg("pgsql连接失败")
+			zlog.Error().Str("addr", addr).Err(err).Msg("pgsql 连接失败")
 			panic(err)
 		}
-		zlog.Info().Str("addr", addr).Msg("pgsql连接成功")
+		// 验证数据库连接
+		sqlDB, err := db.DB()
+		if err != nil {
+			zlog.Error().Str("addr", addr).Err(err).Msg("pgsql 获取底层连接失败")
+			panic(err)
+		}
+		if err = sqlDB.Ping(); err != nil {
+			zlog.Error().Str("addr", addr).Err(err).Msg("pgsql 连接测试失败")
+			panic(err)
+		}
+		zlog.Info().Str("addr", addr).Msg("pgsql 连接成功")
 	})
 }
 
@@ -79,9 +90,17 @@ func buildDSN(addr, user, pwd, dbName string) (string, error) {
 	if len(hostPort) == 0 || hostPort[0] == "" {
 		return "", fmt.Errorf("invalid address format: %s", addr)
 	}
-	dsn := fmt.Sprintf("host=%s dbname=%s user=%s password=%s", hostPort[0], dbName, user, pwd)
+
+	// 使用 url.Values 安全编码参数，避免特殊字符问题
+	params := url.Values{}
+	params.Set("dbname", dbName)
+	params.Set("user", user)
+	params.Set("password", pwd)
+	params.Set("sslmode", "disable") // 默认禁用 SSL，如需启用可通过选项配置
+
+	dsn := fmt.Sprintf("host=%s %s", hostPort[0], params.Encode())
 	if len(hostPort) >= 2 {
-		dsn += fmt.Sprintf(" port=%s", hostPort[1])
+		dsn = fmt.Sprintf("%s port=%s", dsn, hostPort[1])
 	}
 	return dsn, nil
 }
@@ -144,4 +163,15 @@ func StartTransaction(ctx context.Context, trans TransactionFunc) error {
 // IsRecordNotFoundErr 判断是否记录不存在错误
 func IsRecordNotFoundErr(err error) bool {
 	return errors.Is(err, gorm.ErrRecordNotFound)
+}
+
+// Close 关闭数据库连接
+func Close() {
+	if db != nil {
+		sqlDB, err := db.DB()
+		if err == nil {
+			_ = sqlDB.Close()
+			zlog.Info().Msg("PostgreSQL 连接已关闭")
+		}
+	}
 }

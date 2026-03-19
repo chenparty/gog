@@ -6,6 +6,7 @@ import (
 	"golang.org/x/time/rate"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -15,14 +16,15 @@ type requestInfo struct {
 }
 
 var (
-	requestInfoCache     otter.Cache[string, *requestInfo] // IP与请求信息的映射
+	requestInfoCache     otter.Cache[string, *requestInfo] // IP 与请求信息的映射
+	cacheInitOnce        sync.Once                         // 确保只初始化一次
 	defaultMaxRequests   = 50                              // 默认允许的最大请求数
 	defaultTimeWindow    = 3 * time.Second                 // 默认时间窗口
 	defaultCacheCapacity = 100_000                         // 默认缓存容量
 	defaultCacheExpire   = 1 * time.Minute                 // 默认缓存过期时间
 )
 
-// IPRateLimit IP限流器-基于内存，建议在面向用户侧服务使用
+// IPRateLimit IP 限流器 - 基于内存，建议在面向用户侧服务使用
 func IPRateLimit(ipCacheCapacity int, timeWindow time.Duration, maxRequests int) gin.HandlerFunc {
 	// 校验参数，判断是否使用默认值
 	if ipCacheCapacity <= 0 {
@@ -34,12 +36,14 @@ func IPRateLimit(ipCacheCapacity int, timeWindow time.Duration, maxRequests int)
 	if maxRequests <= 0 {
 		maxRequests = defaultMaxRequests
 	}
-	// 初始化请求限流信息缓存
-	var err error
-	requestInfoCache, err = otter.MustBuilder[string, *requestInfo](ipCacheCapacity).WithTTL(defaultCacheExpire).Build()
-	if err != nil {
-		panic(err)
-	}
+	// 初始化请求限流信息缓存（只初始化一次）
+	cacheInitOnce.Do(func() {
+		var err error
+		requestInfoCache, err = otter.MustBuilder[string, *requestInfo](ipCacheCapacity).WithTTL(defaultCacheExpire).Build()
+		if err != nil {
+			panic(err)
+		}
+	})
 	return func(c *gin.Context) {
 		userAgent := c.Request.UserAgent()
 		// 如果是微服务内部调用放行

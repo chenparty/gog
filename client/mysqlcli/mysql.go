@@ -54,10 +54,20 @@ func Connect(addr, user, pwd, dbName string, options ...Option) {
 		}),
 	})
 	if err != nil {
-		zlog.Error().Str("addr", addr).Err(err).Msg("mysql连接失败")
+		zlog.Error().Str("addr", addr).Err(err).Msg("mysql 连接失败")
 		panic(err)
 	}
-	zlog.Info().Str("addr", addr).Msg("mysql连接成功")
+	// 验证数据库连接
+	sqlDB, err := db.DB()
+	if err != nil {
+		zlog.Error().Str("addr", addr).Err(err).Msg("mysql 获取底层连接失败")
+		panic(err)
+	}
+	if err = sqlDB.Ping(); err != nil {
+		zlog.Error().Str("addr", addr).Err(err).Msg("mysql 连接测试失败")
+		panic(err)
+	}
+	zlog.Info().Str("addr", addr).Msg("mysql 连接成功")
 }
 
 // WithSilent 设置是否打印sql语句
@@ -116,4 +126,15 @@ func ExecuteInTx(ctx context.Context, ops ...TxOperation) error {
 		}
 		return nil
 	})
+}
+
+// Close 关闭数据库连接
+func Close() {
+	if db != nil {
+		sqlDB, err := db.DB()
+		if err == nil {
+			_ = sqlDB.Close()
+			zlog.Info().Msg("MySQL 连接已关闭")
+		}
+	}
 }

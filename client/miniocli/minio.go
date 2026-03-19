@@ -24,14 +24,16 @@ type Options struct {
 	AccessKeyID     string
 	SecretAccessKey string
 
-	useSSL bool
+	useSSL bool // 默认启用 SSL，生产环境应该使用 SSL
 }
 
 type Option func(*Options)
 
-// Connect 连接minio
+// Connect 连接 minio
 func Connect(addr string, options ...Option) {
-	opts := Options{}
+	opts := Options{
+		useSSL: true, // 默认启用 SSL
+	}
 	for _, opt := range options {
 		if opt != nil {
 			opt(&opts)
@@ -116,4 +118,9 @@ func PreSignedGetObjectByCustom(ctx context.Context, bucketName, objName string,
 func GetObject(ctx context.Context, bucketName, objName string) (obj *minio.Object, err error) {
 	obj, err = minioClient.GetObject(ctx, bucketName, objName, minio.GetObjectOptions{})
 	return
+}
+
+// Close 关闭 Minio 连接（Minio 客户端不需要显式关闭，此方法仅为接口一致性）
+func Close() {
+	zlog.Debug().Msg("Minio 客户端已关闭（无实际操作）")
 }

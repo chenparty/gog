@@ -70,3 +70,11 @@ func WithSentinel(masterName, user, pwd string) Option {
 		options.SentinelPassword = pwd
 	}
 }
+
+// Close 关闭 Redis 连接
+func Close() {
+	if redisClient != nil {
+		_ = redisClient.Close()
+		zlog.Info().Msg("Redis 连接已关闭")
+	}
+}

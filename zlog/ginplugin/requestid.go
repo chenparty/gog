@@ -16,7 +16,7 @@ func GinRequestIDForTrace(allowedRequestIDs ...string) gin.HandlerFunc {
 		var rid string
 		for _, id := range allowedRequestIDs {
 			if rid = c.GetHeader(id); len(rid) > 0 {
-				continue
+				break // 找到第一个非空的 RequestID 后退出循环
 			}
 		}
 		if rid == "" {

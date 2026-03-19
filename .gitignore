@@ -29,3 +29,7 @@ go.work.sum
 go.sum
 
 /gog.zip
+
+# log files
+log/
+*.log

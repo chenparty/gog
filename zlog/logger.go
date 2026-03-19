@@ -1,6 +1,7 @@
 package zlog
 
 import (
+	"fmt"
 	"github.com/rs/zerolog"
 	"io"
 	"os"
@@ -20,8 +21,11 @@ func instance() *Logger { return defaultLogger.Load() }
 func NewLogLogger(mode string, level string, options ...Option) {
 	var m LogMode
 	var le Level
-	if m.parse(mode) != nil || le.parse(level) != nil {
-		panic("invalid log mode or level")
+	if err := m.parse(mode); err != nil {
+		panic(fmt.Sprintf("invalid log mode %q: %v", mode, err))
+	}
+	if err := le.parse(level); err != nil {
+		panic(fmt.Sprintf("invalid log level %q: %v", level, err))
 	}
 	defaultLogger.Store(newLogger(m, le, options...))
 }
