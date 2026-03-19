@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gorm.io/gorm/logger"
-	"net/url"
 	"strings"
-	"sync"
 	"time"
+
+	"gorm.io/gorm/logger"
 
 	"github.com/chenparty/gog/zlog"
 	"github.com/chenparty/gog/zlog/gormplugin"
@@ -18,8 +17,7 @@ import (
 )
 
 var (
-	db   *gorm.DB
-	once sync.Once
+	db *gorm.DB
 )
 
 const (
@@ -28,81 +26,95 @@ const (
 )
 
 type Options struct {
-	TablePrefix   string // 表名前缀
+	TablePrefix   string // 表前缀
 	SingularTable bool   // 使用单数表名
 
 	// Logger
-	Silent                    bool          // 是否打印sql语句
+	Silent                    bool          // 是否打印 sql 语句
 	ParameterizedQueries      bool          // 使用参数化查询
 	IgnoreRecordNotFoundError bool          // 忽略记录不存在错误
 	SlowThreshold             time.Duration // 慢查询阈值
+
+	// Connection
+	TimeZone    string // 时区配置，默认 "UTC"
+	SSLMode     string // SSL 模式，默认 "disable"
+	ConnTimeout int    // 连接超时时间（秒），默认 10
 }
 
 type Option func(*Options)
 
 // Connect 连接数据库
 func Connect(addr, user, pwd, dbName string, options ...Option) {
-	once.Do(func() {
-		opts := Options{
-			SingularTable: DefaultSingularTable,
-			SlowThreshold: DefaultSlowThreshold,
+	opts := Options{
+		SingularTable: DefaultSingularTable,
+		SlowThreshold: DefaultSlowThreshold,
+		TimeZone:      "Asia/Shanghai", // 默认使用 Asia/Shanghai 时区
+		SSLMode:       "disable",       // 默认禁用 SSL
+		ConnTimeout:   10,              // 默认 10 秒超时
+	}
+	for _, opt := range options {
+		if opt != nil {
+			opt(&opts)
 		}
-		for _, opt := range options {
-			if opt != nil {
-				opt(&opts)
-			}
-		}
+	}
 
-		dsn, err := buildDSN(addr, user, pwd, dbName)
-		if err != nil {
-			zlog.Error().Str("addr", addr).Err(err).Msg("pgsql连接失败")
-			panic(err)
-		}
+	dsn, err := buildDSN(addr, user, pwd, dbName, opts)
+	if err != nil {
+		zlog.Error().Str("addr", addr).Err(err).Msg("pgsql 连接失败")
+		panic(err)
+	}
 
-		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
-			DisableForeignKeyConstraintWhenMigrating: true,
-			NamingStrategy: schema.NamingStrategy{
-				TablePrefix:   opts.TablePrefix,
-				SingularTable: opts.SingularTable,
-			},
-			Logger: newGORMLogger(opts),
-		})
-		if err != nil {
-			zlog.Error().Str("addr", addr).Err(err).Msg("pgsql 连接失败")
-			panic(err)
-		}
-		// 验证数据库连接
-		sqlDB, err := db.DB()
-		if err != nil {
-			zlog.Error().Str("addr", addr).Err(err).Msg("pgsql 获取底层连接失败")
-			panic(err)
-		}
-		if err = sqlDB.Ping(); err != nil {
-			zlog.Error().Str("addr", addr).Err(err).Msg("pgsql 连接测试失败")
-			panic(err)
-		}
-		zlog.Info().Str("addr", addr).Msg("pgsql 连接成功")
+	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+		DisableForeignKeyConstraintWhenMigrating: true,
+		NamingStrategy: schema.NamingStrategy{
+			TablePrefix:   opts.TablePrefix,
+			SingularTable: opts.SingularTable,
+		},
+		Logger: newGORMLogger(opts),
 	})
+	if err != nil {
+		zlog.Error().Str("addr", addr).Err(err).Msg("pgsql 连接失败")
+		panic(err)
+	}
+	// 验证数据库连接
+	sqlDB, err := db.DB()
+	if err != nil {
+		zlog.Error().Str("addr", addr).Err(err).Msg("pgsql 获取底层连接失败")
+		panic(err)
+	}
+	if err = sqlDB.Ping(); err != nil {
+		zlog.Error().Str("addr", addr).Err(err).Msg("pgsql 连接测试失败")
+		panic(err)
+	}
+	zlog.Info().Str("addr", addr).Msg("pgsql 连接成功")
 }
 
-func buildDSN(addr, user, pwd, dbName string) (string, error) {
+func buildDSN(addr, user, pwd, dbName string, opts Options) (string, error) {
 	hostPort := strings.Split(addr, ":")
 	if len(hostPort) == 0 || hostPort[0] == "" {
 		return "", fmt.Errorf("invalid address format: %s", addr)
 	}
 
-	// 使用 url.Values 安全编码参数，避免特殊字符问题
-	params := url.Values{}
-	params.Set("dbname", dbName)
-	params.Set("user", user)
-	params.Set("password", pwd)
-	params.Set("sslmode", "disable") // 默认禁用 SSL，如需启用可通过选项配置
-
-	dsn := fmt.Sprintf("host=%s %s", hostPort[0], params.Encode())
+	host := hostPort[0]
+	port := ""
 	if len(hostPort) >= 2 {
-		dsn = fmt.Sprintf("%s port=%s", dsn, hostPort[1])
+		port = hostPort[1]
 	}
-	return dsn, nil
+
+	dsnParts := []string{
+		fmt.Sprintf("host=%s", host),
+		fmt.Sprintf("dbname=%s", dbName),
+		fmt.Sprintf("user=%s", user),
+		fmt.Sprintf("password=%s", pwd),
+		fmt.Sprintf("sslmode=%s", opts.SSLMode),
+		fmt.Sprintf("timezone=%s", opts.TimeZone),
+		fmt.Sprintf("connect_timeout=%d", opts.ConnTimeout),
+	}
+	if port != "" {
+		dsnParts = append(dsnParts, fmt.Sprintf("port=%s", port))
+	}
+
+	return strings.Join(dsnParts, " "), nil
 }
 
 func newGORMLogger(opts Options) logger.Interface {
@@ -139,6 +151,33 @@ func WithIgnoreRecordNotFoundError(ignoreRecordNotFoundError bool) Option {
 func WithSlowThreshold(slowThreshold time.Duration) Option {
 	return func(options *Options) {
 		options.SlowThreshold = slowThreshold
+	}
+}
+
+// WithTimeZone 设置时区（例如："UTC", "Asia/Shanghai", "America/New_York"）
+func WithTimeZone(timeZone string) Option {
+	return func(options *Options) {
+		if timeZone != "" {
+			options.TimeZone = timeZone
+		}
+	}
+}
+
+// WithSSLMode 设置 SSL 模式（"disable", "require", "verify-ca", "verify-full"）
+func WithSSLMode(sslMode string) Option {
+	return func(options *Options) {
+		if sslMode != "" {
+			options.SSLMode = sslMode
+		}
+	}
+}
+
+// WithConnTimeout 设置连接超时时间（秒）
+func WithConnTimeout(timeout int) Option {
+	return func(options *Options) {
+		if timeout > 0 {
+			options.ConnTimeout = timeout
+		}
 	}
 }
 
