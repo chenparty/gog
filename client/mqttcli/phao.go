@@ -213,11 +213,7 @@ func Publish(topic string, qos byte, payload any) error {
 	}
 
 	token := mqttClient.Publish(topic, qos, false, payload)
-	if !token.WaitTimeout(5 * time.Second) {
-		zlog.Error().Str("topic", topic).Msg("MQTT 发布超时")
-		return fmt.Errorf("MQTT 发布超时")
-	}
-
+	token.Wait()
 	if err := token.Error(); err != nil {
 		zlog.Error().Str("topic", topic).Err(err).Msg("MQTT 发布失败")
 		return err

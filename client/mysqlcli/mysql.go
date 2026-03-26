@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/chenparty/gog/zlog"
@@ -41,8 +40,7 @@ func Connect(addr, user, pwd, dbName string, options ...Option) {
 			opt(&opts)
 		}
 	}
-	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		user, url.QueryEscape(pwd), addr, dbName)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", user, pwd, addr, dbName)
 	var err error
 	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
