@@ -10,15 +10,48 @@ import (
 	"time"
 )
 
-var client *resty.Client
+var defaultClient *resty.Client
+var defaultTimeout = 10 * time.Second
 
 func init() {
-	client = resty.New().
-		SetTimeout(10*time.Second).
-		SetHeader("User-Agent", "httpcli/1.0")
+	defaultClient = resty.New()
+	defaultClient.SetTimeout(defaultTimeout)
+	defaultClient.SetHeader("User-Agent", "httpcli/1.0")
 }
 
-func PostJson(ctx context.Context, reqUrl string, header map[string]string, body any) (statusCode int, respBody []byte, err error) {
+// RequestOptions 请求选项函数类型
+type RequestOptions func(*requestOptions)
+
+// requestOptions 请求选项配置
+type requestOptions struct {
+	timeout time.Duration
+}
+
+// WithTimeout 设置请求超时时间，覆盖默认的 10s 超时
+func WithTimeout(timeout time.Duration) RequestOptions {
+	return func(o *requestOptions) {
+		o.timeout = timeout
+	}
+}
+
+// getClient 根据选项获取合适的客户端
+// 当指定了自定义超时时，创建临时客户端以避免影响全局共享客户端
+func getClient(opts *requestOptions) *resty.Client {
+	if opts.timeout > 0 {
+		c := resty.New()
+		c.SetTimeout(opts.timeout)
+		c.SetHeader("User-Agent", "httpcli/1.0")
+		return c
+	}
+	return defaultClient
+}
+
+func PostJson(ctx context.Context, reqUrl string, header map[string]string, body any, opts ...RequestOptions) (statusCode int, respBody []byte, err error) {
+	o := &requestOptions{}
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	if reqUrl == "" {
 		zlog.Error().Ctx(ctx).Msg("PostJson: empty URL provided")
 		err = errors.New("empty URL")
@@ -35,7 +68,8 @@ func PostJson(ctx context.Context, reqUrl string, header map[string]string, body
 	header["Content-Type"] = "application/json"
 	header[ginplugin.HeaderRequestID] = zlog.TraceIDFromContext(ctx)
 
-	req := client.R().
+	c := getClient(o)
+	req := c.R().
 		SetContext(ctx).
 		SetHeaders(header).
 		SetBody(body)
@@ -62,7 +96,12 @@ func PostJson(ctx context.Context, reqUrl string, header map[string]string, body
 	return
 }
 
-func Get(ctx context.Context, reqUrl string, header map[string]string, queryParam map[string]string) (statusCode int, respBody []byte, err error) {
+func Get(ctx context.Context, reqUrl string, header map[string]string, queryParam map[string]string, opts ...RequestOptions) (statusCode int, respBody []byte, err error) {
+	o := &requestOptions{}
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	if reqUrl == "" {
 		zlog.Error().Ctx(ctx).Msg("Get: empty URL provided")
 		err = errors.New("empty URL")
@@ -78,7 +117,9 @@ func Get(ctx context.Context, reqUrl string, header map[string]string, queryPara
 	}
 	header[ginplugin.HeaderRequestID] = zlog.TraceIDFromContext(ctx)
 
-	req := client.R().
+	c := getClient(o)
+	req := c.R().
+		SetContext(ctx).
 		SetHeaders(header).
 		SetQueryParams(queryParam)
 
