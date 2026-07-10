@@ -2,6 +2,7 @@ package etcdcli
 
 import (
 	"context"
+	"fmt"
 	"github.com/chenparty/gog/zlog"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
@@ -25,16 +26,26 @@ type Options struct {
 
 type Option func(*Options)
 
+// MustConnect 连接 Etcd（Must 版本，适合服务启动阶段，失败直接 panic）
+func MustConnect(servers []string, options ...Option) {
+	serversStr := strings.Join(servers, ",")
+	if err := Connect(servers, options...); err != nil {
+		zlog.Error().Str("servers", serversStr).Err(err).Msg("Etcd 连接失败")
+		panic(err)
+	}
+}
+
 // Connect 连接etcd
-func Connect(servers []string, options ...Option) {
+func Connect(servers []string, options ...Option) error {
 	opts := Options{}
 	for _, opt := range options {
 		if opt != nil {
 			opt(&opts)
 		}
 	}
-	var err error
-	cli, err = clientv3.New(clientv3.Config{
+
+	// 使用局部变量接收，避免初始化失败时污染全局变量
+	localCli, err := clientv3.New(clientv3.Config{
 		Endpoints:           servers,
 		DialTimeout:         3 * time.Second,
 		Username:            opts.Username,
@@ -42,18 +53,24 @@ func Connect(servers []string, options ...Option) {
 		PermitWithoutStream: true,
 	})
 	if err != nil {
-		zlog.Error().Err(err).Str("servers", strings.Join(servers, ",")).Msg("etcd连接失败")
-		panic(err)
+		return fmt.Errorf("etcd 初始化失败 [%s]: %w", strings.Join(servers, ","), err)
 	}
-	// 尝试发送一个请求，检查连接是否成功
+
+	// 尝试发送一个请求，检查连接是否真正可用
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	_, err = cli.Get(ctx, opts.PingKeyPrefix+"/ping") // 这里可以尝试获取一个存在的键
+
+	_, err = localCli.Get(ctx, opts.PingKeyPrefix+"/ping")
 	if err != nil {
-		zlog.Error().Err(err).Msg("etcd get失败")
-		panic(err)
+		// 如果连接测试失败，必须关闭底层连接，防止 goroutine 泄漏
+		localCli.Close()
+		return fmt.Errorf("etcd 连接测试失败 [%s]: %w", strings.Join(servers, ","), err)
 	}
+
+	// 全部成功，赋值给全局变量
+	cli = localCli
 	zlog.Info().Str("servers", strings.Join(servers, ",")).Msg("etcd连接成功")
+	return nil
 }
 
 // WithUserAndPass 设置用户名密码

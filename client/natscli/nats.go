@@ -1,6 +1,7 @@
 package natscli
 
 import (
+	"fmt"
 	"github.com/chenparty/gog/zlog"
 	"github.com/nats-io/nats.go"
 	"strings"
@@ -28,8 +29,17 @@ type Options struct {
 
 type Option func(*Options)
 
+// MustConnect 连接 NATS（Must 版本，适合服务启动阶段，失败直接 panic）
+func MustConnect(clientName string, servers []string, options ...Option) {
+	serversStr := strings.Join(servers, ",")
+	if err := Connect(clientName, servers, options...); err != nil {
+		zlog.Error().Str("servers", serversStr).Err(err).Msg("NATS 连接失败")
+		panic(err)
+	}
+}
+
 // Connect NATS连接
-func Connect(clientName string, servers []string, options ...Option) {
+func Connect(clientName string, servers []string, options ...Option) error {
 	opts := Options{
 		reconnectWait: time.Second * 30,
 		maxReconnects: 120,
@@ -39,7 +49,7 @@ func Connect(clientName string, servers []string, options ...Option) {
 			opt(&opts)
 		}
 	}
-	var err error
+
 	// 基础配置项
 	natsOpts := []nats.Option{nats.Name(clientName)}
 	natsOpts = append(natsOpts, nats.ReconnectWait(opts.reconnectWait))
@@ -53,38 +63,45 @@ func Connect(clientName string, servers []string, options ...Option) {
 	natsOpts = append(natsOpts, nats.ClosedHandler(func(nc *nats.Conn) {
 		zlog.Info().Str("url", nc.ConnectedUrl()).Msg("NATS closed")
 	}))
+
 	// 加密配置
 	if opts.Username != "" && opts.Password != "" {
 		natsOpts = append(natsOpts, nats.UserInfo(opts.Username, opts.Password))
 	} else if opts.NKeySeedFile != "" {
-		var natsOpt nats.Option
-		var e error
-		natsOpt, e = nats.NkeyOptionFromSeed(opts.NKeySeedFile)
+		natsOpt, e := nats.NkeyOptionFromSeed(opts.NKeySeedFile)
 		if e != nil {
-			zlog.Error().Err(e).Str("seedFile", opts.NKeySeedFile).Msg("NkeyOptionFromSeed")
-			panic(e) // NKey 认证失败应该终止启动
+			return fmt.Errorf("nats NKeyOptionFromSeed 失败 [%s]: %w", opts.NKeySeedFile, e)
 		}
 		natsOpts = append(natsOpts, natsOpt)
 	} else if opts.Token != "" {
 		natsOpts = append(natsOpts, nats.Token(opts.Token))
 	}
+
 	// 发起连接
 	serversStr := strings.Join(servers, ",")
-	nc, err = nats.Connect(serversStr, natsOpts...)
+	localNc, err := nats.Connect(serversStr, natsOpts...)
 	if err != nil {
-		zlog.Error().Err(err).Str("servers", serversStr).Msg("nats连接失败")
-		panic(err)
+		return fmt.Errorf("nats 连接失败 [%s]: %w", serversStr, err)
 	}
-	zlog.Info().Str("servers", serversStr).Msg("nats连接成功")
-	// Stream配置
+
+	// Stream 配置
 	if opts.EnableJetStream {
+		// 因为 newJetStreamContext() 内部肯定依赖读取全局 nc 变量，所以这里必须先赋值
+		nc = localNc
 		err = newJetStreamContext()
 		if err != nil {
-			zlog.Error().Err(err).Msg("createJetStreamContext")
-			panic(err)
+			// 如果 JetStream 初始化失败，必须关闭底层连接并清理全局变量，防止连接泄漏
+			nc.Close()
+			nc = nil
+			return fmt.Errorf("nats 创建 JetStream Context 失败: %w", err)
 		}
 		zlog.Info().Str("servers", serversStr).Msg("JetStream Context创建成功")
+	} else {
+		nc = localNc
 	}
+
+	zlog.Info().Str("servers", serversStr).Msg("nats连接成功")
+	return nil
 }
 
 // NewZlogLoggerWithNATS 使用NATS作为日志输出

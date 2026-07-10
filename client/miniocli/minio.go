@@ -2,6 +2,7 @@ package miniocli
 
 import (
 	"context"
+	"fmt"
 	"github.com/chenparty/gog/zlog"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -29,8 +30,16 @@ type Options struct {
 
 type Option func(*Options)
 
+// MustConnect 连接 MinIO（Must 版本，适合服务启动阶段，失败直接 panic）
+func MustConnect(addr string, options ...Option) {
+	if err := Connect(addr, options...); err != nil {
+		zlog.Error().Str("addr", addr).Err(err).Msg("MinIO 连接失败")
+		panic(err)
+	}
+}
+
 // Connect 连接 minio
-func Connect(addr string, options ...Option) {
+func Connect(addr string, options ...Option) error {
 	opts := Options{
 		useSSL: true, // 默认启用 SSL
 	}
@@ -39,17 +48,22 @@ func Connect(addr string, options ...Option) {
 			opt(&opts)
 		}
 	}
+
 	minioOptions := minio.Options{
 		Creds:  credentials.NewStaticV4(opts.AccessKeyID, opts.SecretAccessKey, ""),
 		Secure: opts.useSSL,
 	}
-	var err error
-	minioClient, err = minio.New(addr, &minioOptions)
+
+	// 使用局部变量接收，避免初始化失败时污染全局变量
+	client, err := minio.New(addr, &minioOptions)
 	if err != nil {
-		zlog.Error().Str("addr", addr).Err(err).Msg("minio连接失败")
-		panic(err)
+		return fmt.Errorf("minio 初始化失败 [%s]: %w", addr, err)
 	}
+
+	// 全部成功，赋值给全局变量
+	minioClient = client
 	zlog.Info().Str("addr", addr).Msg("minio连接成功")
+	return nil
 }
 
 // WithAccess 设置访问密钥

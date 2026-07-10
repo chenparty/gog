@@ -29,8 +29,16 @@ type Options struct {
 
 type Option func(*Options)
 
+// MustConnect 连接 MySQL（Must 版本，适合服务启动阶段，失败直接 panic）
+func MustConnect(addr, user, pwd, dbName string, options ...Option) {
+	if err := Connect(addr, user, pwd, dbName, options...); err != nil {
+		zlog.Error().Str("addr", addr).Err(err).Msg("MySQL 连接失败")
+		panic(err)
+	}
+}
+
 // Connect 连接数据库
-func Connect(addr, user, pwd, dbName string, options ...Option) {
+func Connect(addr, user, pwd, dbName string, options ...Option) error {
 	opts := Options{
 		SingularTable: true,
 		SlowThreshold: time.Second,
@@ -40,13 +48,15 @@ func Connect(addr, user, pwd, dbName string, options ...Option) {
 			opt(&opts)
 		}
 	}
+
 	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", user, pwd, addr, dbName)
-	var err error
-	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+
+	// 使用局部变量接收，避免初始化失败时污染全局变量
+	gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 		NamingStrategy: schema.NamingStrategy{
-			TablePrefix:   opts.TablePrefix,   // 表名前缀，`User` 的表名应该是 `t_users`
-			SingularTable: opts.SingularTable, // 使用单数表名，启用该选项，此时，`User` 的表名应该是 `t_user`
+			TablePrefix:   opts.TablePrefix,
+			SingularTable: opts.SingularTable,
 		},
 		Logger: gormplugin.NewLogger(gormplugin.Config{
 			Silent:                    opts.Silent,
@@ -56,20 +66,22 @@ func Connect(addr, user, pwd, dbName string, options ...Option) {
 		}),
 	})
 	if err != nil {
-		zlog.Error().Str("addr", addr).Err(err).Msg("mysql 连接失败")
-		panic(err)
+		return fmt.Errorf("mysql gorm.Open 失败 [%s]: %w", addr, err)
 	}
+
 	// 验证数据库连接
-	sqlDB, err := db.DB()
+	sqlDB, err := gormDB.DB()
 	if err != nil {
-		zlog.Error().Str("addr", addr).Err(err).Msg("mysql 获取底层连接失败")
-		panic(err)
+		return fmt.Errorf("mysql 获取底层连接失败 [%s]: %w", addr, err)
 	}
 	if err = sqlDB.Ping(); err != nil {
-		zlog.Error().Str("addr", addr).Err(err).Msg("mysql 连接测试失败")
-		panic(err)
+		return fmt.Errorf("mysql 连接测试失败 [%s]: %w", addr, err)
 	}
+
+	// 全部成功，赋值给全局变量
+	db = gormDB
 	zlog.Info().Str("addr", addr).Msg("mysql 连接成功")
+	return nil
 }
 
 // WithSilent 设置是否打印sql语句

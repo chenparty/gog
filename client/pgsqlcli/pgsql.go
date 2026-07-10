@@ -43,8 +43,16 @@ type Options struct {
 
 type Option func(*Options)
 
+// MustConnect 连接 PostgreSQL（Must 版本，适合服务启动阶段，失败直接 panic）
+func MustConnect(addr, user, pwd, dbName string, options ...Option) {
+	if err := Connect(addr, user, pwd, dbName, options...); err != nil {
+		zlog.Error().Str("addr", addr).Err(err).Msg("PostgreSQL 连接失败")
+		panic(err)
+	}
+}
+
 // Connect 连接数据库
-func Connect(addr, user, pwd, dbName string, options ...Option) {
+func Connect(addr, user, pwd, dbName string, options ...Option) error {
 	opts := Options{
 		SingularTable: DefaultSingularTable,
 		SlowThreshold: DefaultSlowThreshold,
@@ -60,11 +68,11 @@ func Connect(addr, user, pwd, dbName string, options ...Option) {
 
 	dsn, err := buildDSN(addr, user, pwd, dbName, opts)
 	if err != nil {
-		zlog.Error().Str("addr", addr).Err(err).Msg("pgsql 连接失败")
-		panic(err)
+		return fmt.Errorf("pgsql 构建 DSN 失败 [%s]: %w", addr, err)
 	}
 
-	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+	// 使用局部变量接收，避免初始化失败时污染全局变量
+	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 		NamingStrategy: schema.NamingStrategy{
 			TablePrefix:   opts.TablePrefix,
@@ -73,20 +81,22 @@ func Connect(addr, user, pwd, dbName string, options ...Option) {
 		Logger: newGORMLogger(opts),
 	})
 	if err != nil {
-		zlog.Error().Str("addr", addr).Err(err).Msg("pgsql 连接失败")
-		panic(err)
+		return fmt.Errorf("pgsql gorm.Open 失败 [%s]: %w", addr, err)
 	}
+
 	// 验证数据库连接
-	sqlDB, err := db.DB()
+	sqlDB, err := gormDB.DB()
 	if err != nil {
-		zlog.Error().Str("addr", addr).Err(err).Msg("pgsql 获取底层连接失败")
-		panic(err)
+		return fmt.Errorf("pgsql 获取底层连接失败 [%s]: %w", addr, err)
 	}
 	if err = sqlDB.Ping(); err != nil {
-		zlog.Error().Str("addr", addr).Err(err).Msg("pgsql 连接测试失败")
-		panic(err)
+		return fmt.Errorf("pgsql 连接测试失败 [%s]: %w", addr, err)
 	}
+
+	// 全部成功，赋值给全局变量
+	db = gormDB
 	zlog.Info().Str("addr", addr).Msg("pgsql 连接成功")
+	return nil
 }
 
 func buildDSN(addr, user, pwd, dbName string, opts Options) (string, error) {
