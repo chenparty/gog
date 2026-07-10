@@ -28,7 +28,7 @@ func init() {
 func main() {
 	cfg := app.Get()
 	mysqlcli.Connect(cfg.Mysql.Addr, cfg.Mysql.User, cfg.Mysql.Pwd, cfg.Mysql.DbName)
-	mqttcli.Connect(cfg.Mqtt.Addr, mqttcli.AuthWithUser(cfg.Mqtt.User, cfg.Mqtt.Pwd))
+	mqttcli.MustConnect(cfg.Mqtt.Addr, mqttcli.AuthWithUser(cfg.Mqtt.User, cfg.Mqtt.Pwd))
 	mq.InitSubscription()
 	api.Init(cfg.Release)
 }
