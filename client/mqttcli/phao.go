@@ -81,8 +81,8 @@ func Connect(addr string, options ...Option) error {
 
 	cliCfg := autopaho.ClientConfig{
 		ServerUrls:                    []*url.URL{u},
-		KeepAlive:                     20,
-		CleanStartOnInitialConnection: false,
+		KeepAlive:                     30,
+		CleanStartOnInitialConnection: true,
 		SessionExpiryInterval:         60,
 
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
@@ -126,6 +126,8 @@ func Connect(addr string, options ...Option) error {
 		if opts.Username != "" {
 			c.Username = opts.Username
 			c.Password = []byte(opts.Password)
+			c.UsernameFlag = true
+			c.PasswordFlag = true
 		}
 		if opts.willTopic != "" {
 			c.WillMessage = &paho.WillMessage{
